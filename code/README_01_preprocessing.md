@@ -1,4 +1,4 @@
-# 01. Checking Batch Difference
+# 01. Checking Splited data Differences
 
 ### Dataset overview
 
