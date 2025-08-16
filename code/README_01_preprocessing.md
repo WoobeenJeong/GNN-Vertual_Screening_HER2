@@ -13,7 +13,7 @@
 - TPSA: max values ≈ 146–159, small but significant batch differences.
 - RotB: mean ≈ 4.2, SD ≈ 1.44, max 11.
 
-<img width="1005" height="505" alt="image" src="https://github.com/user-attachments/assets/e3c003ad-d3c0-4ff9-9010-237b8b3fde73" />
+<img width="3189" height="852" alt="image" src="https://github.com/user-attachments/assets/294b1245-7eee-4573-ae6e-fc69f6378312" />
 
 ### Statistical tests
 
