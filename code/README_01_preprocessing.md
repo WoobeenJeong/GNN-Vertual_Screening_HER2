@@ -20,3 +20,4 @@
 - Kruskal–Wallis shows significant batch differences for MW, logP, and TPSA (p < 0.01).
 - Post-hoc (Bonferroni) found multiple pairwise batch differences.
 
+<img width="2922" height="774" alt="image" src="https://github.com/user-attachments/assets/d6c76588-97b0-4f24-abf5-20b707e718ce" />
