@@ -25,7 +25,7 @@ HER2-mutant metastatic non-small cell lung cancer (mNCLC), notably in Asian fema
 
 We performed large-scale computer-based virtual screening targeting the HER2 8VB5 binding region to identify and prioritize candidate compounds/proteins with predicted high affinity, improved potential activity against exon-20 insertion mutants.
 
-Top hits were triaged using deep-learning frameworks and are recommended for immediate biochemical and cellular validation as promising leads to overcome current resistance mechanisms and improve clinical outcomes.
+Top hits were triaged using deep-learning frameworks and are recommended for biochemical and cellular validation as promising leads to overcome current resistance mechanisms and improve clinical outcomes.
 
 ---
 
