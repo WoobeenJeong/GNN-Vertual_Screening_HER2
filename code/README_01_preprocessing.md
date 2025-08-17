@@ -9,7 +9,7 @@
 ### Summary statistics
 
 - MW: means ≈ 334–339 Da, SD ≈ 39–41.
-- logP: means ≈ 2.37–2.62, but extremely large max values (~500).
+- logP: means ≈ 2.37–2.62, but extremely large max values.
 - TPSA: max values ≈ 146–159, small but significant batch differences.
 - RotB: mean ≈ 4.2, SD ≈ 1.44, max 11.
 
