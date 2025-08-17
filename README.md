@@ -7,6 +7,40 @@ For internal use only. Do not redistribute without permission.
 
 ---
 
+# Timeline for collaborators (removed after completion)
+
+### [ 선정타겟 PDB ]
+
+8VB5 (특징: chain A / YVMA mutation)
+
+### [ 특이사항 ]
+
+8/13
+- HETATM 제거: EDO, PEG (Non-standard residue)
+- Native legand pdbqt : A1AAC (이미 tucatinib 붙는곳, 논문은 아직X)
+
+8/14
+- 김효진님께서 10만개 리스트 5 split 분할
+
+8/16
+- 5 split 중, 2번 split에서 중복값 3개 제외
+- MW, logP, TPSA split별 통계적 유의성 검토
+
+### [ 목표 ]
+
+*활동일지=줌캡쳐+요약
+
+8/20 = Autodock으로 도킹 완료(affinity, smiles 따오기)
+
+9/3 = 모델 완성 및 Top 뽑아서 새로 도킹(GININA로 score 뽑을 여유 있으면 수행)
+
+9/10 = Boltz structure 구성
+
+9/14 = 포스터 구성 완성
+
+
+---
+
 The dataset is available at
 
 https://enamine.net/compound-libraries/diversity-libraries
@@ -55,8 +89,8 @@ I will describe it later on...
 ### Mentor
 - Haelyn Kim, Seoul National University
 ### Contributors
-- Dohoon Kim
-- Hyojin Kim
-- Bokyung Park
-- Woobeen Jeong
-- Junseo Hwang
+- Dohoon Kim, Research scientist in the pharmaceutical industry
+- Hyojin Kim, Research scientist in the pharmaceutical industry
+- Bokyung Park, AI research scientist in the pharmaceutical industry
+- Woobeen Jeong, Seoul National University
+- Junseo Hwang, Korea Advanced Institute of Science and Technology (KAIST)
