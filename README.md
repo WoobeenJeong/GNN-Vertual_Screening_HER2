@@ -3,7 +3,7 @@
 
 
 This repository is part of the LAIDD mentoring project.
-For internal use only. Do not redistribute without permission.
+For internal and educational use only. Do not redistribute without permission.
 
 ---
 
@@ -92,8 +92,11 @@ I will describe it later on...
 ### Mentor
 - Haelyn Kim, Seoul National University
 ### Contributors
-- Dohoon Kim, Research scientist in the pharmaceutical industry
-- Hyojin Kim, Research scientist in the pharmaceutical industry
-- Bokyung Park, AI research scientist in the pharmaceutical industry
-- Woobeen Jeong, Seoul National University
-- Junseo Hwang, Korea Advanced Institute of Science and Technology (KAIST)
+Research scientist in the pharmaceutical industry
+- Dohoon Kim
+- Hyojin Kim
+AI research scientist in the pharmaceutical industry
+- Bokyung Park
+- Woobeen Jeong
+Korea Advanced Institute of Science and Technology (KAIST)
+- Junseo Hwang
