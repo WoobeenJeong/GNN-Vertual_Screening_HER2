@@ -20,11 +20,14 @@ For internal use only. Do not redistribute without permission.
 - Native legand pdbqt : A1AAC (이미 tucatinib 붙는곳, 논문은 아직X)
 
 8/14
-- 김효진님께서 10만개 리스트 5 split 분할
+- 10만개 리스트 5 split 분할
 
 8/16
 - 5 split 중, 2번 split에서 중복값 3개 제외
-- MW, logP, TPSA split별 통계적 유의성 검토
+- split별 통계적 유의성 검토
+
+8/17
+- maxit (RCSB) cif -> pdb 변환
 
 ### [ 목표 ]
 
