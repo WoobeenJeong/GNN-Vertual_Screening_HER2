@@ -120,10 +120,15 @@ I will describe it later on...
 - Haelyn Kim, Seoul National University
 ### Contributors
 Research scientist in the pharmaceutical industry
+
 - Dohoon Kim
 - Hyojin Kim
+
 AI research scientist in the pharmaceutical industry
+
 - Bokyung Park
 - Woobeen Jeong
+
 Korea Advanced Institute of Science and Technology (KAIST)
+
 - Junseo Hwang
