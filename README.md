@@ -1,5 +1,5 @@
 # GNN-Vertual_Screening_HER2
-### Large-scale Virtual Screening (VS) using Docking and GNN 
+### Large-scale Virtual Screening using GNN 
 
 
 This repository is part of the LAIDD mentoring project.
