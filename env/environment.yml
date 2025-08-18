@@ -1,0 +1,22 @@
+name: docking
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.11.13
+  - pip
+  - numpy=2.3.1
+  - scipy=1.16.0
+  - pandas=2.3.1
+  - matplotlib-base=3.10.5
+  - jupyterlab=4.4.5
+  - ipykernel
+  - rdkit=2025.03.5  # rdkit: "conda-forge" is recommended
+  - maxit=11.300     # bioconda
+  - autogrid=4.2.6   # bioconda
+  - gemmi
+  - libopenblas
+  - openjdk          # optional
+  - pip:
+    - -r requirements.txt
