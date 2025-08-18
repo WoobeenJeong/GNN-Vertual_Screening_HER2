@@ -52,30 +52,57 @@ https://enamine.net/compound-libraries/diversity-libraries
 
 # Abstract
 
-HER2-mutant metastatic non-small cell lung cancer (mNCLC), notably in Asian female non-smokers, demonstrates only modest benefit from current targeted therapies (≈30–50% ORR; median targeted therapy duration ~8 months) and lacks an FDA-approved standard, while resistance driven by wild-type HER2 relapse and exon-20 insertion variants remains inadequately addressed.
-
----
-
-<img width="2000" height="745" alt="image" src="https://github.com/user-attachments/assets/8430658c-3306-421e-98d6-28e04659f535" />
-
----
-
-We performed large-scale computer-based virtual screening targeting the HER2 8VB5 binding region to identify and prioritize candidate compounds/proteins with predicted high affinity, improved potential activity against exon-20 insertion mutants.
-
-Top hits were triaged using deep-learning frameworks and are recommended for biochemical and cellular validation as promising leads to overcome current resistance mechanisms and improve clinical outcomes.
-
----
-
-<img width="1661" height="844" alt="image" src="https://github.com/user-attachments/assets/193bdc5d-c1d6-43ab-80ce-a1a4ccd0f6cc" />
-
----
+HER2-mutant metastatic non-small cell lung cancer (mNCLC), notably in Asian female non-smokers, demonstrates only modest benefit from current targeted therapies (≈30–50% ORR; median targeted therapy duration ~8 months) and lacks an FDA-approved standard, while resistance driven by wild-type HER2 relapse and exon-20 insertion variants remains inadequately addressed.<br>
+<br>
+<img width="2000" height="745" alt="image" src="https://github.com/user-attachments/assets/8430658c-3306-421e-98d6-28e04659f535" /><br>
+<br>
+We performed large-scale computer-based virtual screening targeting the HER2 8VB5 binding region to identify and prioritize candidate compounds/proteins with predicted high affinity, improved potential activity against exon-20 insertion mutants.<br>
+<br>
+Top hits were triaged using deep-learning frameworks and are recommended for biochemical and cellular validation as promising leads to overcome current resistance mechanisms and improve clinical outcomes.<br>
+<br>
+<img width="1661" height="844" alt="image" src="https://github.com/user-attachments/assets/193bdc5d-c1d6-43ab-80ce-a1a4ccd0f6cc" /><br>
+<br>
 
 # Baselines
 
-I will describe it later on...
+For reproducibility, we commit environment.yml
+
+Workflow note: for AWS EC2 (x86_64)
+
+```
+# from a terminal where the environment exists
+conda activate docking
+conda env export --from-history --name docking > environment.yml
+```
+--from-history ensures only explicitly installed packages are listed.<br>
+<br>
+Project directory structure on AWS EC2:
+```
+/home/ssm-user/project
+├─ 01_check_batch.ipynb
+├─ 02_autodock_batch.ipynb
+├─ 03_make_smi_from_csv.py
+├─ 04_prepare_pdbqt_parallel.sh
+├─ smiles_batch_1~5.csv
+└─ autodock/
+   ├─ 8VB5.cif
+   ├─ 8vb5.pdb
+   ├─ 8vb5.pdbqt
+   ├─ 8vb5_prot.map
+   ├─ a1aac.mol2
+   ├─ a1aac.pdbqt
+   ├─ ligand_list.txt
+   ├─ potent/
+      └─ *.smi
+   └─ potent_pdbqt/
+      └─ *.pdbqt
+```
+
+
 
 # Autodock-GPU
 
+I will describe it later on...
 
 # GNINA
 
