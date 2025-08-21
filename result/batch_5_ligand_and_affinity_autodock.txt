@@ -1,5 +1,4 @@
-Rank  Ligand                    SMILES                    Binding Affinity (kcal/mol)
-------------------------------------------------------------------------------------------
+Rank	Ligand	SMILES	Binding_Affinity(kcal/mol)
 1     Z2011577420          NS(=O)(=O)C=1C=CC(=CC1)C2=NOC(=N2)[C@]34CCC[C@@H]4CN(CC=5C=CC=CC5)C3 -8.70                    
 2     Z29672623            CC1=NN=C(NC(=O)C=2C=CC=C(C2)S(=O)(=O)N(CC=3C=CC=CC3)C=4C=CC=CC4Cl)S1 -8.54                    
 3     Z27741978            CC=1C=C(N=C(C)N1)NS(=O)(=O)C=2C=CC(=CC2)NC(=O)CCCN3C(=O)C=4C=CC=CC4C3=O -8.29                    
