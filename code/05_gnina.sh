@@ -3,8 +3,8 @@ set -euo pipefail
 
 # ==============================
 # Usage:
-#   sh gnina.sh --center 8vb5
-#   sh gnina.sh --center aa1ac
+#   sh 05_gnina.sh --center 8vb5
+#   sh 05_gnina.sh --center aa1ac
 # ==============================
 
 # export LD_LIBRARY_PATH="/home/ssm-user/miniforge3/envs/docking/lib:$LD_LIBRARY_PATH"
@@ -24,7 +24,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         *)
-            echo "알 수 없는 옵션: $1"
+            echo "No option: $1"
             exit 1
             ;;
     esac
