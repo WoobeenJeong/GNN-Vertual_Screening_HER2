@@ -51,6 +51,11 @@ for f in "${FILES[@]}"; do
     OUT_SDF="$RESULT_DIR/${LIGAND_NAME}_docked.sdf"
     LOG_FILE="$RESULT_DIR/${LIGAND_NAME}_gnina_out.log"
 
+    if [ -f "$OUT_SDF" ]; then
+        echo "Skip: $LIGAND_NAME (already docked)"
+        continue
+    fi
+
     echo "Start: $LIGAND_NAME"
 
     gnina -r "$PROTEIN" -l "$f" \
@@ -64,6 +69,5 @@ for f in "${FILES[@]}"; do
           --cnn crossdock_default2018 \
           --cnn_scoring rescore \
           --seed 0 \
-          -o "$OUT_SDF"
-          # -o "$OUT_SDF" | tee "$LOG_FILE"
+          -o "$OUT_SDF" 2>&1 | tee "$LOG_FILE"
 done
