@@ -20,7 +20,6 @@ def parse_block(block):
             return float(x)
         except Exception:
             return None
-
     return {
         "smiles": smiles,
         "minimizedAffinity": to_float(min_aff),
@@ -46,7 +45,7 @@ def best_pose_for_file(filepath):
             best_idx = max(scores_with, key=lambda t: t[1])[0]
         else:
             best_idx = 0
-
+            
     return parsed[best_idx]
 
 def ligand_name_from_filename(fname):
