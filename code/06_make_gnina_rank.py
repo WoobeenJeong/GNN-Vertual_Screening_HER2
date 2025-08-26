@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 
 import os, re, glob, csv
+import pandas as pd
 
 SDF_DIR = "/home/ssm-user/project/gnina"
 OUTFILE = "gnina_ranking.txt"
+CSV_FILE = "/home/ssm-user/project/smiles_batch_2_20029.csv"
+
+smiles_df = pd.read_csv(CSV_FILE)
+name2smi = {row["Catalog ID"]: row["SMILES"] for _, row in smiles_df.iterrows()}
 
 def parse_block(block):
     def find_prop(name):
@@ -20,6 +25,7 @@ def parse_block(block):
             return float(x)
         except Exception:
             return None
+
     return {
         "smiles": smiles,
         "minimizedAffinity": to_float(min_aff),
@@ -45,7 +51,6 @@ def best_pose_for_file(filepath):
             best_idx = max(scores_with, key=lambda t: t[1])[0]
         else:
             best_idx = 0
-            
     return parsed[best_idx]
 
 def ligand_name_from_filename(fname):
@@ -66,9 +71,11 @@ def main():
         if best is None:
             print("Warning: no blocks parsed for", f)
             continue
+
+        smiles = name2smi.get(ligand, best.get("smiles") or "")
         rows.append({
             "Ligand": ligand,
-            "SMILES": best.get("smiles") or "",
+            "SMILES": smiles,
             "Binding Affinity (kcal/mol)": best.get("minimizedAffinity"),
             "CNNscore": best.get("CNNscore"),
             "CNNaffinity": best.get("CNNaffinity"),
@@ -78,6 +85,7 @@ def main():
     def sort_key(r):
         a = r["Binding Affinity (kcal/mol)"]
         return (a if a is not None else 9999)
+
     rows_sorted = sorted(rows, key=sort_key)
 
     with open(OUTFILE, "w", newline='', encoding="utf-8") as fout:
