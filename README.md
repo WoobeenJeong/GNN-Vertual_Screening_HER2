@@ -83,19 +83,18 @@ Project directory structure on AWS EC2:
 ├─ 02_autodock_batch.ipynb
 ├─ 03_make_smi_from_csv.py
 ├─ 04_prepare_pdbqt_parallel.sh
-├─ smiles_batch_1~5.csv
+├─ 05_gnina.sh
+├─ 06_make_gnina_list.py
+├─ smiles_batch_1~5.csv (=ligand)
 └─ autodock/
-   ├─ 8VB5.cif
-   ├─ 8vb5.pdb
-   ├─ 8vb5.pdbqt
-   ├─ 8vb5_prot.map
-   ├─ a1aac.mol2
-   ├─ a1aac.pdbqt
+   ├─ target (cif, pdb, pdbqt, map, mol2)
    ├─ ligand_list.txt
    ├─ potent/
       └─ *.smi
    └─ potent_pdbqt/
       └─ *.pdbqt
+└─ gnina/
+
 ```
 
 
