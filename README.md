@@ -98,7 +98,7 @@ Project directory structure on AWS EC2:
 └─ scores/
    ├─ 07_generalize_output.ipynb
    ├─ 08_smiles_to_graph.py
-   ├─ processed_graphs.csv
+   ├─ input_graphs.csv (metadata)
    └─ graphs/
       └─*.pt
 ```
