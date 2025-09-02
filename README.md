@@ -93,11 +93,15 @@ Project directory structure on AWS EC2:
       └─ *.smi
    └─ potent_pdbqt/
       └─ *.pdbqt
-└─ gnina/
-
+├─ gnina/
+      └─ *.sdf
+└─ scores/
+   ├─ 07_generalize_output.ipynb
+   ├─ 08_smiles_to_graph.py
+   ├─ processed_graphs.csv
+   └─ graphs/
+      └─*.pt
 ```
-
-
 
 # Autodock-GPU
 
