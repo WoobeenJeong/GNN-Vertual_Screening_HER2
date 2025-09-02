@@ -100,7 +100,7 @@ Project directory structure on AWS EC2:
    ├─ 08_smiles_to_graph.py
    ├─ input_graphs.csv (metadata)
    └─ graphs/
-      └─*.pt
+      └─*.pt (n=97,956)
 ```
 
 # Autodock-GPU
