@@ -85,9 +85,9 @@ Project directory structure on AWS EC2:
 ├─ 04_prepare_pdbqt_parallel.sh
 ├─ 05_gnina.sh
 ├─ 06_make_gnina_list.py
-├─ smiles_batch_1~5.csv (=ligand)
+├─ smiles_batch_1~5.csv                 ## Ligands
 └─ autodock/
-   ├─ target (cif, pdb, pdbqt, map, mol2)
+   ├─ *.cif, pdb, pdbqt, map, mol2      ## Target
    ├─ ligand_list.txt
    ├─ potent/
       └─ *.smi
@@ -98,9 +98,9 @@ Project directory structure on AWS EC2:
 └─ scores/
    ├─ 07_generalize_output.ipynb
    ├─ 08_smiles_to_graph.py
-   ├─ input_graphs.csv (metadata)
+   ├─ input_graphs.csv                  ## Meta-data (n=97,956)    
    └─ graphs/
-      └─*.pt (n=97,956)
+      └─*.pt
 ```
 
 # Autodock-GPU
