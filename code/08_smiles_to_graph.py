@@ -225,18 +225,17 @@ def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, u
 
         ## find vina affinity col
         ba_col = None
-        for cand in ['binding affinity (kcal/mol)', 'binding affinity', 'vina_affinity']:
+        for cand in ['binding affinity (kcal/mol)', 'Binding affinity (kcal/mol)', 'vina_affinity']:
             if cand in columns_lower:
                 ba_col = columns_lower[cand]
                 break
 
-        ## find cnn affinity col
+        ## find gnina affinity col
         cnn_col = None
-        for cand in ['cnnaffinity', 'cnn affinity', 'cnn_affinity']:
+        for cand in ['cnn affinity', 'CNN affinity', 'gnina_affinity']:
             if cand in columns_lower:
                 cnn_col = columns_lower[cand]
                 break
-        ## if not found, attempt to detect by partial names
         if ba_col is None:
             for c in df.columns:
                 if 'binding' in c.lower() and 'kcal' in c.lower():
@@ -316,8 +315,8 @@ def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, u
                 "ligand_id": ligand_id,
                 "smiles": smiles,
                 "graph_path": graph_path,
-                "binding_affinity_kcal_mol": ba_val,
-                "cnnaffinity": cnn_val
+                "vina_affinity": ba_val,
+                "gnina_affinity": cnn_val
             })
             kept += 1
 
