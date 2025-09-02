@@ -7,11 +7,11 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 
 # -------------------------
-# Gnina-like convert function (붙여넣기)
-# - 이전에 제공한 convert_mol_to_graph_gnina_like() 를 그대로 사용합니다.
+# Gnina-like convert function
 # -------------------------
+
 def convert_mol_to_graph_gnina_like(mol, use_pos=False):
-    # remove explicit H for graph simplicity (as original)
+    ## remove explicit H for graph simplicity (as original)
     mol2 = Chem.RemoveHs(mol)
     n_bonds = len(mol2.GetBonds())
     n_atoms = len(mol2.GetAtoms())
@@ -20,7 +20,7 @@ def convert_mol_to_graph_gnina_like(mol, use_pos=False):
     edge_attr = []
     edge_weight = []
 
-    # --- edges
+    ## edges
     for edge_idx in range(n_bonds):
         bond = mol2.GetBondWithIdx(edge_idx)
         a = bond.GetBeginAtomIdx()
@@ -62,7 +62,7 @@ def convert_mol_to_graph_gnina_like(mol, use_pos=False):
         edge_attr.append(attr)
         edge_attr.append(attr)
 
-    # --- node features (Gnina-like 확장)
+    ## node features (Gnina-like Appended to metals and halogens)
     valid_atoms = {
       'H':0,'B':1,'C':2,'N':3,'O':4,'F':5,'P':6,'S':7,'Cl':8,
       'Br':9,'I':10,'Fe':11,'Zn':12,'Mg':13,'Ca':14,'Na':15,'K':16,'OTHER':17
@@ -70,7 +70,7 @@ def convert_mol_to_graph_gnina_like(mol, use_pos=False):
     metals = {'Fe','Zn','Mg','Ca','Na','K','Cu','Mn','Co','Ni'}
     halogens = {'F','Cl','Br','I'}
 
-    # compute Gasteiger charges (silent fail safe)
+    ## compute Gasteiger charges (silent fail safe)
     try:
         AllChem.ComputeGasteigerCharges(mol2)
         has_gasteiger = True
@@ -117,7 +117,7 @@ def convert_mol_to_graph_gnina_like(mol, use_pos=False):
         else:
             chiral_one_hot = [0,0,0,1]
 
-        # additional features
+        ## additional features
         sym_upper = sym
         is_hbd = 0
         if sym_upper in {'N','O','S'}:
@@ -179,6 +179,7 @@ def convert_mol_to_graph_gnina_like(mol, use_pos=False):
 # -------------------------
 # Main processing pipeline
 # -------------------------
+
 def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, use_pos=False):
     if out_csv_path is None:
         out_csv_path = os.path.join(SDF_DIR, "processed_graphs.csv")
@@ -197,18 +198,19 @@ def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, u
     for fpath in files:
         batch_name = os.path.basename(fpath)
         print(f"Processing {batch_name} ...")
-        # try pandas auto-detect separator
+        ## try pandas auto-detect separator
         try:
             df = pd.read_csv(fpath, sep=None, engine='python')
         except Exception:
             # fallback: tab separated
             df = pd.read_csv(fpath, sep='\t', engine='python')
 
-        # Normalize column names to access needed fields robustly
+        ## Normalize column names to access needed fields robustly
         columns_lower = {c.lower(): c for c in df.columns}
-        # find SMILES column
+        
+        ## find SMILES col
         smiles_col = None
-        for candidate in ['smiles', 'smile', 'smilestring']:
+        for candidate in ['smiles', 'smile', 'SMILES']:
             if candidate in columns_lower:
                 smiles_col = columns_lower[candidate]
                 break
@@ -221,19 +223,20 @@ def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, u
         if smiles_col is None:
             raise ValueError(f"Could not find SMILES column in {fpath}. Columns: {df.columns.tolist()}")
 
-        # binding affinity col
+        ## find vina affinity col
         ba_col = None
-        for cand in ['binding affinity (kcal/mol)', 'binding affinity', 'binding_affinity', 'bindingaffinity', 'affinity', 'cnnaffinity']:
+        for cand in ['binding affinity (kcal/mol)', 'binding affinity', 'vina_affinity']:
             if cand in columns_lower:
                 ba_col = columns_lower[cand]
                 break
-        # cnnaffinity col
+
+        ## find cnn affinity col
         cnn_col = None
-        for cand in ['cnnaffinity', 'cnn affinity', 'cnscore', 'cnnaff']:
+        for cand in ['cnnaffinity', 'cnn affinity', 'cnn_affinity']:
             if cand in columns_lower:
                 cnn_col = columns_lower[cand]
                 break
-        # if not found, attempt to detect by partial names
+        ## if not found, attempt to detect by partial names
         if ba_col is None:
             for c in df.columns:
                 if 'binding' in c.lower() and 'kcal' in c.lower():
@@ -243,7 +246,7 @@ def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, u
                 if 'cnn' in c.lower() and 'aff' in c.lower():
                     cnn_col = c; break
 
-        # iterate rows
+        ## iterate rows
         for idx, row in df.iterrows():
             total += 1
             smiles = str(row[smiles_col]).strip()
@@ -252,7 +255,7 @@ def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, u
             ba_val = row.get(ba_col, None) if ba_col is not None else None
             cnn_val = row.get(cnn_col, None) if cnn_col is not None else None
 
-            # Attempt to parse SMILES robustly
+            ## Attempt to parse SMILES robustly
             mol = None
             try:
                 mol = Chem.MolFromSmiles(smiles)
@@ -269,7 +272,7 @@ def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, u
                 mol = None
 
             if mol is None:
-                # last-resort: try kekulize/smiles roundtrip
+                ## last-resort: try kekulize/smiles roundtrip
                 try:
                     tmp = Chem.MolFromSmiles(smiles, sanitize=False)
                     if tmp is not None:
@@ -279,10 +282,9 @@ def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, u
                     mol = None
 
             if mol is None:
-                # cannot parse -> skip
                 continue
 
-            # Convert to graph
+            ## Convert to graph
             try:
                 res = convert_mol_to_graph_gnina_like(mol, use_pos=use_pos)
                 if res is None:
@@ -293,7 +295,7 @@ def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, u
                 print(f"Conversion error for {ligand_id} (idx {idx}) : {e}")
                 continue
 
-            # save graph object to file
+            ## save graph object to file
             safe_name = f"{os.path.splitext(batch_name)[0]}_{idx}_{str(ligand_id)}".replace(os.sep, "_").replace(" ", "_")
             graph_path = os.path.join(graphs_dir, safe_name + ".pt")
             # ensure deterministic small object by converting tensors to CPU
@@ -328,6 +330,7 @@ def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, u
 # -------------------------
 # 실행 예시
 # -------------------------
+
 if __name__ == "__main__":
     SDF_DIR = "/home/ssm-user/project/scores"
     out_csv = os.path.join(SDF_DIR, "input_graphs.csv")
