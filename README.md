@@ -44,9 +44,19 @@ For internal and educational use only. Do not redistribute without permission.
 
 ---
 
-The dataset is available at
+The dataset is available at:
+
+### [ Development set (100,160 compounds) ]
+
+Hit Locator Library (HLL-100)
 
 https://enamine.net/compound-libraries/diversity-libraries
+
+Final Scored Ligand set ( 97,956 compounds )
+
+### [ Evaluation set (4,643,787 compounds) ]
+
+https://enamine.net/compound-collections/screening-collection
 
 ---
 
