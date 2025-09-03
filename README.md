@@ -86,7 +86,7 @@ conda env export --from-history --name docking > environment.yml
 ```
 --from-history ensures only explicitly installed packages are listed.<br>
 <br>
-Project directory structure on AWS EC2:
+Project directory structure on AWS EC2 (To preprocessing data):
 ```
 /home/ssm-user/project
 ├─ 01_check_batch.ipynb
@@ -122,6 +122,12 @@ I will describe it later on...
 
 # ML & DL based TOP-n compound picking
 
+- XGBoost    (Dohoon Kim)
+- LightGBM   (Dohoon Kim)
+- Ensemble   (Hyojin Kim)
+- GNN         
+
+- " " shows the best performance and interpretation on druggability
 
 # Analyze interaction properties using ChimeraX
 
