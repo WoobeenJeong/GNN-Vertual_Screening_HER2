@@ -467,6 +467,8 @@ def main(args):
     true_vina = np.array([d['y'][1].item() if d['y'].numel() >= 2 else np.nan for d in test_list])
     pred_g, pred_v = mean_preds_orig[:, 0], mean_preds_orig[:, 1]
 
+    pred_v_cal, a_v, b_v = pred_v, 1.0, 0.0
+        
     def minmax_rescale(pred, target):
         mask = ~np.isnan(target)
         if mask.sum() == 0: return pred
