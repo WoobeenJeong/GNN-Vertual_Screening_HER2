@@ -2,24 +2,24 @@
 """
 Command Example:
     
-    python 09_bayesian_gnn_ensemble.py
+    python 09_bayesian_gnn_ensemble.py --lambda_corr 1.0
 
 Descriptions (Eng / Kor):
 
     [critical options]
     --meta_csv        "add path to csv file with meta-data"
-    --graphs_root     "add path that contains ligands.pt"
-    --out_dir         "add where to save output results"
+    --graphs_root    "add path that contains ligands.pt"
+    --out_dir        "add where to save output results"
 
     [learning option defaults]
     --epoch 200 --batch_size 32 --lr 1e-3 --weight_decay 1e-5
-    --dropout 0.1     "For Monte-Carlo based Bayesian Confidence calculation"
+    --dropout 0.1    "For Monte-Carlo based Bayesian Confidence calculation"
     --mc_T            "How many time you want to ramdomly re-try"
 
     [korean version]
     --meta_csv        "개별 리간드에서 추출한 feature가 담긴 pt파일 경로를 저장한 meta-data.csv"
-    --graphs_root     "추출한 feature가 담긴 pt파일들이 모여있는 파일 경로"
-    --out_dir         "어디에 결과를 저장할건지"
+    --graphs_root    "추출한 feature가 담긴 pt파일들이 모여있는 파일 경로"
+    --out_dir        "어디에 결과를 저장할건지"
 
 4개의 모델 GINEconv, GATv2, Transformer, GCN 을 앙상블로 구성했습니다.
 각 모델 당 5개의 랜덤 Monte-Carlo Dropout을 통해, 추정의 불확실성을 정량측정하며,
@@ -131,10 +131,10 @@ def collate_graphs(graphs):
     return {'x': batch_x, 'edge_index': batch_ei, 'edge_attr': batch_ea, 'y': batch_y, 'node_counts': node_counts, 'batch_vec': batch_vec, 'ligand_id': ligand_ids, 'smiles': smiles}
 
 # -------------------------
-# SiLU-GNN models 
+# SiLU-GNN models
 # - GINEconv
 # - GATv2
-# - Transformer 
+# - Transformer
 # - GCN
 # -------------------------
 
@@ -261,7 +261,7 @@ def sample_ensemble_predictions(ensemble_models, loader, device, mc_T=5, enable_
 
     for m_idx, m in enumerate(ensemble_models):
         conv_type = m.conv_type if hasattr(m, 'conv_type') else 'unknown'
-        if verbose: print(f"  Sampling from model {m_idx+1}/{len(ensemble_models)} ({conv_type.upper()}) (MC-T={mc_T if enable_mc else 1})")
+        if verbose: print(f" Sampling from model {m_idx+1}/{len(ensemble_models)} ({conv_type.upper()}) (MC-T={mc_T if enable_mc else 1})")
         
         num_draws = mc_T if enable_mc and mc_T > 0 else 1
         for draw in range(num_draws):
@@ -322,7 +322,7 @@ def main(args):
 
     train_loader = DataLoader(GraphDictDataset(train_list), batch_size=args.batch_size, shuffle=True, collate_fn=collate_graphs)
     val_loader = DataLoader(GraphDictDataset(val_list), batch_size=args.batch_size, shuffle=False, collate_fn=collate_graphs)
-    test_loader  = DataLoader(GraphDictDataset(test_list), batch_size=args.batch_size, shuffle=False, collate_fn=collate_graphs)
+    test_loader = DataLoader(GraphDictDataset(test_list), batch_size=args.batch_size, shuffle=False, collate_fn=collate_graphs)
 
     in_dim = next((d['x'].shape[1] for d in data_list if d['x'] is not None and d['x'].ndim == 2 and d['x'].shape[1] > 0), args.fallback_in_dim)
     print(f"[info] Determined input feature dimension (in_dim): {in_dim}")
@@ -332,11 +332,53 @@ def main(args):
     std_train = np.where(std_train == 0, 1.0, std_train)
     print(f"[info] Train target mean: {mean_train.ravel()}, std: {std_train.ravel()}")
 
+    # <<<--- START: MODIFIED SECTION --- #
+    def pearson_corr_loss(x, y):
+        # Center the variables for Pearson correlation calculation
+        vx = x - torch.mean(x)
+        vy = y - torch.mean(y)
+        # Calculate Pearson correlation coefficient
+        numerator = torch.sum(vx * vy)
+        denominator = torch.sqrt(torch.sum(vx ** 2)) * torch.sqrt(torch.sum(vy ** 2))
+        # Add a small epsilon for numerical stability
+        corr = numerator / (denominator + 1e-8)
+        return 1.0 - corr
+
     def criterion(preds, y):
         y_norm = (y - torch.tensor(mean_train, dtype=torch.float, device=preds.device)) / torch.tensor(std_train, dtype=torch.float, device=preds.device)
         mask = ~torch.isnan(y_norm)
-        if not mask.any(): return torch.tensor(0.0, device=preds.device, requires_grad=True)
-        return nn.functional.mse_loss(preds[mask], y_norm[mask])
+        
+        if not mask.any():
+            return torch.tensor(0.0, device=preds.device, requires_grad=True)
+
+        # 1. MSE Loss (Original)
+        mse_loss = nn.functional.mse_loss(preds[mask], y_norm[mask])
+        
+        # 2. Pearson Correlation Loss (Added)
+        corr_loss_total = 0.0
+        n_targets = preds.shape[1]
+        valid_targets_for_corr = 0
+        
+        for i in range(n_targets):
+            pred_i = preds[:, i]
+            y_norm_i = y_norm[:, i]
+            mask_i = ~torch.isnan(y_norm_i)
+            
+            # Pearson correlation requires at least 2 data points
+            if mask_i.sum() < 2:
+                continue
+            
+            valid_targets_for_corr += 1
+            pred_i_valid = pred_i[mask_i]
+            y_norm_i_valid = y_norm_i[mask_i]
+            
+            corr_loss_total += pearson_corr_loss(pred_i_valid, y_norm_i_valid)
+
+        avg_corr_loss = corr_loss_total / valid_targets_for_corr if valid_targets_for_corr > 0 else 0.0
+        
+        # 3. Combined Loss
+        return mse_loss + args.lambda_corr * avg_corr_loss
+    # <<<--- END: MODIFIED SECTION --- #
 
     ensemble_specs = json.loads(args.ensemble_specs)
     ensemble_models = build_ensemble_from_specs(ensemble_specs, in_dim, device, args.hidden_dim, args.num_layers, args.dropout)
@@ -436,10 +478,12 @@ def main(args):
         corr_g = pearsonr(true_gnina[mask_g], pred_g_cal[mask_g])[0]
         print(f"\n[Performance] Final GNINA Pearson Correlation: {corr_g:.4f}")
 
+    # Note: Added a placeholder for pred_v_cal which was missing in the original code's logic
+    pred_v_cal = pred_v # Placeholder, as VINA calibration was not implemented.
     mask_v = ~np.isnan(true_vina) & ~np.isnan(pred_v_cal)
     if mask_v.sum() > 1:
         corr_v = pearsonr(true_vina[mask_v], pred_v_cal[mask_v])[0]
-        print(f"[Performance] Final VINA  Pearson Correlation: {corr_v:.4f}\n")
+        print(f"[Performance] Final VINA Pearson Correlation: {corr_v:.4f}\n")
     
     df_out = pd.DataFrame({
         'ligand_id': [d.get('ligand_id') for d in test_list],
@@ -470,6 +514,9 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--weight_decay', type=float, default=1e-5)
+    # <<<--- START: MODIFIED SECTION --- #
+    parser.add_argument('--lambda_corr', type=float, default=1.0, help="Weight for the Pearson correlation loss term.")
+    # <<<--- END: MODIFIED SECTION --- #
     parser.add_argument('--early_stopping_patience', type=int, default=25, help="Patience for early stopping.")
 
     ## model construction
@@ -484,8 +531,8 @@ if __name__ == "__main__":
     parser.add_argument('--replace_nan', type=float, default=None)
     
     ## ensemble and sampling
-    parser.add_argument('--ensemble_specs', type=str, 
-                        default='[{"name":"gine","conv_type":"gine","seed":42},{"name":"gatv2","conv_type":"gatv2","seed":43},{"name":"transformer","conv_type":"transformer","seed":44},{"name":"gcn","conv_type":"gcn","seed":45}]', 
+    parser.add_argument('--ensemble_specs', type=str,
+                        default='[{"name":"gine","conv_type":"gine","seed":42},{"name":"gatv2","conv_type":"gatv2","seed":43},{"name":"transformer","conv_type":"transformer","seed":44},{"name":"gcn","conv_type":"gcn","seed":45}]',
                         help="JSON string defining the ensemble members.")
     parser.add_argument('--mc_T', type=int, default=5)
     parser.add_argument('--enable_mc_dropout', action='store_true')
