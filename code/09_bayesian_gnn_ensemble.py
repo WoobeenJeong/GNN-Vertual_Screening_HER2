@@ -53,6 +53,7 @@ from scipy.stats import pearsonr
 USE_PYG = False
 try:
     from torch_geometric.nn import GCNConv, GATv2Conv, TransformerConv, GINEConv, global_mean_pool, GlobalAttention
+    from torch_geometric.nn.aggr import AttentionalAggregation
     USE_PYG = True
     print("[info] torch_geometric's GNN layers are available.")
 except Exception:
@@ -177,8 +178,8 @@ class GNNMember(nn.Module):
                 for _ in range(num_layers - 1):
                     self.convs.append(ConvLayer(hidden_dim, hidden_dim))
             
-            self.attention_pool = GlobalAttention(gate_nn=nn.Linear(hidden_dim, 1))
-
+            self.attention_pool = AttentionalAggregation(gate_nn=nn.Linear(hidden_dim, 1))
+            
         else:
             self.mlp_node = nn.Sequential(nn.Linear(in_dim, hidden_dim), nn.ReLU(), nn.Dropout(dropout))
         
@@ -231,7 +232,7 @@ class CCCLoss(nn.Module):
         y_var = torch.var(y)
         preds_var = torch.var(preds)
         
-        covariance = torch.mean(preds - preds_mean) * (y - y_mean)
+        covariance = torch.mean((preds - preds_mean) * (y - y_mean))
         ccc = (2 * covariance) / (preds_var + y_var + (preds_mean - y_mean)**2 + self.epsilon)
 
         return 1 - ccc
@@ -352,12 +353,10 @@ def main(args):
 
     train_loader = DataLoader(GraphDictDataset(train_list), batch_size=args.batch_size, shuffle=True, collate_fn=collate_graphs)
     val_loader = DataLoader(GraphDictDataset(val_list), batch_size=args.batch_size, shuffle=False, collate_fn=collate_graphs)
-    test_loader = DataLoader(GraphDictDataset(test_list), batch_size=args.batch_size, shuffle=False, collate_fn=collate_graphs)
+    test_loader  = DataLoader(GraphDictDataset(test_list), batch_size=args.batch_size, shuffle=False, collate_fn=collate_graphs)
 
     in_dim = next((d['x'].shape[1] for d in data_list if d['x'] is not None and d['x'].ndim == 2 and d['x'].shape[1] > 0), args.fallback_in_dim)
-    print(f"[info] Determined input feature dimension (in_dim): {in_dim}")
-
-    edge_dim = next((d['edge_attr'].shape[1] for d in data_list if d.get('edge_attr') is not None and d['edge_attr'].ndim == 2 and d['edge_attr'].shape[1] > 0), None)    
+    edge_dim = next((d['edge_attr'].shape[1] for d in data_list if d.get('edge_attr') is not None and d['edge_attr'].ndim == 2 and d['edge_attr'].shape[1] > 0), None)
     print(f"[info] Determined input feature dimension (in_dim): {in_dim}")
     print(f"[info] Determined edge feature dimension (edge_dim): {edge_dim}")
 
@@ -368,54 +367,20 @@ def main(args):
     print(f"[info] Train target mean: {mean_train.ravel()}, std: {std_train.ravel()}")
 
     ccc_loss_fn = CCCLoss()
-        
-    # def pearson_corr_loss(x, y):
-    #     # Center the variables for Pearson correlation calculation
-    #     vx = x - torch.mean(x)
-    #     vy = y - torch.mean(y)
-    #     # Calculate Pearson correlation coefficient
-    #     numerator = torch.sum(vx * vy)
-    #     denominator = torch.sqrt(torch.sum(vx ** 2)) * torch.sqrt(torch.sum(vy ** 2))
-    #     # Add a small epsilon for numerical stability
-    #     corr = numerator / (denominator + 1e-8)
-    #     return 1.0 - corr
-
     def criterion(preds, y):
         y_norm = (y - torch.tensor(mean_train, dtype=torch.float, device=preds.device)) / torch.tensor(std_train, dtype=torch.float, device=preds.device)
-        mask = ~torch.isnan(y_norm)
-        
-        if not mask.any() or mask.sum() <= 1:
-            return torch.tensor(0.0, device=preds.device, requires_grad=True)
-        
-        # ## 1. MSE Loss
-        # mse_loss = nn.functional.mse_loss(preds[mask], y_norm[mask])
-        
-        # ## 2. Pearson Correlation Loss
-        # corr_loss_total = 0.0
-        # n_targets = preds.shape[1]
-        # valid_targets_for_corr = 0
-        
-        # for i in range(n_targets):
-        #     pred_i = preds[:, i]
-        #     y_norm_i = y_norm[:, i]
-        #     mask_i = ~torch.isnan(y_norm_i)
-        #     if mask_i.sum() < 2:
-        #         continue
-            
-        #     valid_targets_for_corr += 1
-        #     pred_i_valid = pred_i[mask_i]
-        #     y_norm_i_valid = y_norm_i[mask_i]
-            
-        #     corr_loss_total += pearson_corr_loss(pred_i_valid, y_norm_i_valid)
-
-        # avg_corr_loss = corr_loss_total / valid_targets_for_corr if valid_targets_for_corr > 0 else 0.0
-        
-        # ## 3. Combined Loss
-        # return mse_loss + args.lambda_corr * avg_corr_loss
-        
-        preds_masked = preds[mask]
-        y_norm_masked = y_norm[mask]
-        return ccc_loss_fn(preds_masked, y_norm_masked)
+        mask_gnina = ~torch.isnan(y_norm[:, 0])
+        if mask_gnina.sum() > 1:
+            loss_gnina = ccc_loss_fn(preds[:, 0][mask_gnina], y_norm[:, 0][mask_gnina])
+        else:
+            loss_gnina = torch.tensor(0.0, device=preds.device)
+        mask_vina = ~torch.isnan(y_norm[:, 1])
+        if mask_vina.sum() > 1:
+            loss_vina = ccc_loss_fn(preds[:, 1][mask_vina], y_norm[:, 1][mask_vina])
+        else:
+            loss_vina = torch.tensor(0.0, device=preds.device)
+        total_loss = loss_gnina + loss_vina
+        return total_loss
         
     ensemble_specs = json.loads(args.ensemble_specs)
     ensemble_models = build_ensemble_from_specs(ensemble_specs, in_dim, device, args.hidden_dim, args.num_layers, args.dropout, edge_dim=edge_dim)
@@ -423,13 +388,15 @@ def main(args):
 
     ## Ensemble learning ##
     
+    all_epoch_logs = []
+
     for i, model in enumerate(ensemble_models):
         spec = ensemble_specs[i]
         model_name = spec.get('name', 'model')
         print(f"\n--- Training ensemble member {i+1}/{len(ensemble_models)}: {model_name.upper()} ---")
         
         optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-        scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=10, verbose=True)
+        scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=10)
         
         best_val_loss = float('inf')
         patience_counter = 0
@@ -447,8 +414,16 @@ def main(args):
                     preds = model(x, edge_index, batch_vec, edge_attr)
                     val_losses.append(criterion(preds, y).item())
             
+            mean_train_loss = np.mean(train_losses)
             avg_val_loss = np.mean(val_losses)
-            print(f"[Train] Ep {ep}/{args.epochs}, Mean Train Loss: {np.mean(train_losses):.6f}, Val Loss: {avg_val_loss:.6f}")
+            print(f"[Train] Ep {ep}/{args.epochs}, Mean Train Loss: {mean_train_loss:.6f}, Val Loss: {avg_val_loss:.6f}")
+
+            all_epoch_logs.append({
+                'model_name': model_name,
+                'epoch': ep,
+                'train_loss': mean_train_loss,
+                'val_loss': avg_val_loss
+            })
             
             scheduler.step(avg_val_loss)
             
@@ -467,6 +442,11 @@ def main(args):
         if args.save_checkpoints and best_model_path.exists():
             print(f"Loading best model weights from: {best_model_path}")
             model.load_state_dict(torch.load(best_model_path))
+
+    log_df = pd.DataFrame(all_epoch_logs)
+    log_csv_path = out_dir / "epoch_training_log.csv"
+    log_df.to_csv(log_csv_path, index=False)
+    print(f"\n[info] Saved epoch-by-epoch training and validation logs to: {log_csv_path}")
 
     ## Ensemble sampling ##
     
@@ -494,15 +474,20 @@ def main(args):
 
     if args.rescale == 'minmax':
         pred_g_rescaled = minmax_rescale(pred_g, true_gnina)
+        pred_v_rescaled = minmax_rescale(pred_v, true_vina) 
         print("[info] Applied min-max rescaling to predictions.")
     else:
         pred_g_rescaled = pred_g
+        pred_v_rescaled = pred_v
 
     if args.calibrate_affine:
         a_g, b_g = fit_affine_map(pred_g_rescaled, true_gnina, args.use_robust_calib)
         pred_g_cal = a_g * pred_g_rescaled + b_g
+        a_v, b_v = fit_affine_map(pred_v_rescaled, true_vina, args.use_robust_calib)
+        pred_v_cal = a_v * pred_v_rescaled + b_v
     else:
         pred_g_cal, a_g, b_g = pred_g_rescaled, 1.0, 0.0
+        pred_v_cal, a_v, b_v = pred_v_rescaled, 1.0, 0.0
 
     ## Rank Confidence ##
     
@@ -517,12 +502,10 @@ def main(args):
         corr_g = pearsonr(true_gnina[mask_g], pred_g_cal[mask_g])[0]
         print(f"\n[Performance] Final GNINA Pearson Correlation: {corr_g:.4f}")
 
-    # Note: Added a placeholder for pred_v_cal which was missing in the original code's logic
-    pred_v_cal = pred_v # Placeholder, as VINA calibration was not implemented.
     mask_v = ~np.isnan(true_vina) & ~np.isnan(pred_v_cal)
     if mask_v.sum() > 1:
         corr_v = pearsonr(true_vina[mask_v], pred_v_cal[mask_v])[0]
-        print(f"[Performance] Final VINA Pearson Correlation: {corr_v:.4f}\n")
+        print(f"[Performance] Final VINA  Pearson Correlation: {corr_v:.4f}\n")
     
     df_out = pd.DataFrame({
         'ligand_id': [d.get('ligand_id') for d in test_list],
@@ -538,7 +521,6 @@ def main(args):
     out_csv = out_dir / "df_sorted_final.csv"
     df_sorted.to_csv(out_csv, index=False)
     print(f"\n[done] Saved final sorted results to: {out_csv}")
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Upgraded Bayesian GNN Ensemble Pipeline")
