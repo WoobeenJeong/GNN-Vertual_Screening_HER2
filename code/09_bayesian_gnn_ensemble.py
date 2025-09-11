@@ -206,6 +206,26 @@ class GNNMember(nn.Module):
         out2 = self.head_vina(hg).view(-1)
         return torch.stack([out1, out2], dim=1)
 
+# ------------------------------------
+# Concordance Correlation Coefficient
+# ------------------------------------
+
+class CCCLoss(nn.Module):
+    def __init__(self, epsilon=1e-8):
+        super().__init__()
+        self.epsilon = epsilon
+
+    def forward(self, preds, y):
+        y_mean = torch.mean(y)
+        preds_mean = torch.mean(preds)
+        y_var = torch.var(y)
+        preds_var = torch.var(preds)
+        
+        covariance = torch.mean((preds - preds_mean) * (y - y_mean)
+        ccc = (2 * covariance) / (preds_var + y_var + (preds_mean - y_mean)**2 + self.epsilon)
+
+        return 1 - ccc
+
 # -------------------------
 # Helpers
 # -------------------------
@@ -332,50 +352,56 @@ def main(args):
     std_train = np.where(std_train == 0, 1.0, std_train)
     print(f"[info] Train target mean: {mean_train.ravel()}, std: {std_train.ravel()}")
 
-    def pearson_corr_loss(x, y):
-        # Center the variables for Pearson correlation calculation
-        vx = x - torch.mean(x)
-        vy = y - torch.mean(y)
-        # Calculate Pearson correlation coefficient
-        numerator = torch.sum(vx * vy)
-        denominator = torch.sqrt(torch.sum(vx ** 2)) * torch.sqrt(torch.sum(vy ** 2))
-        # Add a small epsilon for numerical stability
-        corr = numerator / (denominator + 1e-8)
-        return 1.0 - corr
+    ccc_loss_fn = CCCLoss()
+        
+    # def pearson_corr_loss(x, y):
+    #     # Center the variables for Pearson correlation calculation
+    #     vx = x - torch.mean(x)
+    #     vy = y - torch.mean(y)
+    #     # Calculate Pearson correlation coefficient
+    #     numerator = torch.sum(vx * vy)
+    #     denominator = torch.sqrt(torch.sum(vx ** 2)) * torch.sqrt(torch.sum(vy ** 2))
+    #     # Add a small epsilon for numerical stability
+    #     corr = numerator / (denominator + 1e-8)
+    #     return 1.0 - corr
 
     def criterion(preds, y):
         y_norm = (y - torch.tensor(mean_train, dtype=torch.float, device=preds.device)) / torch.tensor(std_train, dtype=torch.float, device=preds.device)
         mask = ~torch.isnan(y_norm)
         
-        if not mask.any():
+        if not mask.any() or mask.sum() <= 1:
             return torch.tensor(0.0, device=preds.device, requires_grad=True)
-
-        ## 1. MSE Loss
-        mse_loss = nn.functional.mse_loss(preds[mask], y_norm[mask])
         
-        ## 2. Pearson Correlation Loss
-        corr_loss_total = 0.0
-        n_targets = preds.shape[1]
-        valid_targets_for_corr = 0
+        # ## 1. MSE Loss
+        # mse_loss = nn.functional.mse_loss(preds[mask], y_norm[mask])
         
-        for i in range(n_targets):
-            pred_i = preds[:, i]
-            y_norm_i = y_norm[:, i]
-            mask_i = ~torch.isnan(y_norm_i)
-            if mask_i.sum() < 2:
-                continue
+        # ## 2. Pearson Correlation Loss
+        # corr_loss_total = 0.0
+        # n_targets = preds.shape[1]
+        # valid_targets_for_corr = 0
+        
+        # for i in range(n_targets):
+        #     pred_i = preds[:, i]
+        #     y_norm_i = y_norm[:, i]
+        #     mask_i = ~torch.isnan(y_norm_i)
+        #     if mask_i.sum() < 2:
+        #         continue
             
-            valid_targets_for_corr += 1
-            pred_i_valid = pred_i[mask_i]
-            y_norm_i_valid = y_norm_i[mask_i]
+        #     valid_targets_for_corr += 1
+        #     pred_i_valid = pred_i[mask_i]
+        #     y_norm_i_valid = y_norm_i[mask_i]
             
-            corr_loss_total += pearson_corr_loss(pred_i_valid, y_norm_i_valid)
+        #     corr_loss_total += pearson_corr_loss(pred_i_valid, y_norm_i_valid)
 
-        avg_corr_loss = corr_loss_total / valid_targets_for_corr if valid_targets_for_corr > 0 else 0.0
+        # avg_corr_loss = corr_loss_total / valid_targets_for_corr if valid_targets_for_corr > 0 else 0.0
         
-        ## 3. Combined Loss
-        return mse_loss + args.lambda_corr * avg_corr_loss
-
+        # ## 3. Combined Loss
+        # return mse_loss + args.lambda_corr * avg_corr_loss
+        
+        preds_masked = preds[mask]
+        y_norm_masked = y_norm[mask]
+        return ccc_loss_fn(preds_masked, y_norm_masked)
+        
     ensemble_specs = json.loads(args.ensemble_specs)
     ensemble_models = build_ensemble_from_specs(ensemble_specs, in_dim, device, args.hidden_dim, args.num_layers, args.dropout)
     print(f"[info] Built ensemble with {len(ensemble_models)} members.")
