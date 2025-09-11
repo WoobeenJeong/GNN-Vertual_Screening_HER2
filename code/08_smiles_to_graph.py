@@ -1,15 +1,7 @@
 #!/usr/bin/env python3
 """
-build_graphs_and_load_for_gnn.py
-
-Single-file pipeline that:
-- scans a directory for batch*_score.txt files
-- parses SMILES rows and converts each ligand to a graph (.pt saved)
-- writes a metadata CSV with paths and affinities (vina_affinity, gnina_affinity)
-- provides a helper function to load the saved graphs into PyG Data objects (or simple dicts) ready for GNN training
-
-Usage:
-    python build_graphs_and_load_for_gnn.py --sdf_dir /path/to/scores --use_pos False
+Command Example:
+    python 08_smiles_to_graph.py --sdf_dir /path/to/where/score.txt/is --use_pos False
 """
 
 import os
@@ -145,6 +137,8 @@ def convert_mol_to_graph_gnina_like(mol, use_pos=False):
         attr += [arom, ring_flag, atm.GetFormalCharge(), atm.GetNumRadicalElectrons()]
         attr += [is_hbd, is_hba, is_halogen, is_metal, neighbor_polar]
 
+        ## Add Gausian Embedded Charge Info ##
+        
         gcharge_emb = gaussian_embedding(g_charge, centers=np.linspace(-1,1,11), sigma=0.2)
         anum_emb    = gaussian_embedding(float(atomic_num), centers=np.arange(1, 31), sigma=1.0)
         amass_emb   = gaussian_embedding(float(atomic_mass), centers=np.linspace(0, 200, 21), sigma=5.0)
@@ -339,10 +333,9 @@ def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, u
     print(f"Processed total rows: {total}, kept graphs: {kept}")
     out_df = pd.DataFrame(rows_out)
     out_df.to_csv(out_csv_path, index=False)
-    print(f"Saved metadata CSV to: {out_csv_path}")
     return out_df
 
-# ---- helper to load saved graphs into structures ready for GNN ----
+## Helper ##
 
 def load_graphs_for_gnn(meta_csv, graphs_root=None, to_pyg=True, replace_nan_with=None):
     """
@@ -399,7 +392,9 @@ def load_graphs_for_gnn(meta_csv, graphs_root=None, to_pyg=True, replace_nan_wit
 
     return data_list
 
-# ---- CLI ----
+# --------------
+# Main Args
+# --------------
 
 def main():
     parser = argparse.ArgumentParser(description="Build graphs from batch*_score.txt and write metadata CSV")
