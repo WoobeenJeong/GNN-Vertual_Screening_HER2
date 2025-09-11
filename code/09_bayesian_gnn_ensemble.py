@@ -23,7 +23,7 @@ from scipy.stats import pearsonr
 # torch_geometric 라이브러리가 있으면 사용
 USE_PYG = False
 try:
-    from torch_geometric.nn import GCNConv, GATv2Conv, TransformerConv, global_mean_pool
+    from torch_geometric.nn import GCNConv, GATv2Conv, TransformerConv
     USE_PYG = True
     print("[info] torch_geometric's GNN layers are available.")
 except Exception:
@@ -140,7 +140,6 @@ class GNNMember(nn.Module):
         if self.use_pyg:
             h = x
             for conv in self.convs:
-                # TransformerConv는 edge_attr을 받을 수 있음
                 if 'transformer' in self.conv_type and edge_attr is not None and edge_attr.numel() > 0:
                     h = conv(h, edge_index, edge_attr)
                 else:
@@ -149,10 +148,20 @@ class GNNMember(nn.Module):
                 h = self.dropout(h)
             hg = global_mean_pool(h, batch_vec) if batch_vec is not None and batch_vec.numel() > 0 else h.mean(dim=0, keepdim=True)
         else:
-            h_nodes = self.mlp_node(x) if x.numel() > 0 else torch.zeros((batch_vec.max().item() + 1, self.hidden_dim), device=x.device)
-            hg = global_mean_pool(h_nodes, batch_vec) if batch_vec is not None and batch_vec.numel() > 0 else h_nodes.mean(dim=0, keepdim=True)
+            # PyG가 없을 때: global_mean_pool 대신 수동으로 평균 계산 (오류 수정)
+            h_nodes = self.mlp_node(x) if x.numel() > 0 else torch.zeros((0, self.hidden_dim), device=x.device)
+            if batch_vec is None or batch_vec.numel() == 0:
+                hg = h_nodes.mean(dim=0, keepdim=True)
+            else:
+                # 각 그래프의 노드 피처를 합산하여 평균을 계산
+                num_graphs = batch_vec.max().item() + 1
+                hg = torch.zeros(num_graphs, h_nodes.size(1), device=h_nodes.device)
+                hg.index_add_(0, batch_vec, h_nodes) # batch_vec을 인덱스로 사용해 합산
+                
+                node_counts = torch.bincount(batch_vec, minlength=num_graphs).unsqueeze(1).clamp(min=1)
+                hg = hg / node_counts
             
-        out1 = self.head_gnina(hg).view(-1)
+        out1 = self.head_gnina(hg).view(-d1)
         out2 = self.head_vina(hg).view(-1)
         return torch.stack([out1, out2], dim=1)
 
