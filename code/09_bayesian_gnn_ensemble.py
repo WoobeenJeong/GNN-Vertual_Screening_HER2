@@ -19,7 +19,7 @@ Descriptions (Eng / Kor):
     [korean version]
     --meta_csv       "개별 리간드에서 추출한 feature가 담긴 pt파일 경로를 저장한 meta-data.csv"
     --graphs_root    "추출한 feature가 담긴 pt파일들이 모여있는 파일 경로"
-    --out_dir        "어디에 결과를 저장할건지
+    --out_dir        "어디에 결과를 저장할건지"
 
 4개의 모델 GINEconv, GATv2, Transformer, GCN 을 Horizontal하게 쌓았습니다.
 각 모델 당 5개의 랜덤 Monte-Carlo Dropout을 통해, 추정의 불확실성을 정량측정하며,
