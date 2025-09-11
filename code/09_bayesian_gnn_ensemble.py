@@ -7,24 +7,24 @@ Command Example:
 Descriptions (Eng / Kor):
 
     [critical options]
-    --meta_csv       "add path to csv file with meta-data"
-    --graphs_root    "add path that contains ligands.pt"
-    --out_dir        "add where to save output results"
+    --meta_csv        "add path to csv file with meta-data"
+    --graphs_root     "add path that contains ligands.pt"
+    --out_dir         "add where to save output results"
 
     [learning option defaults]
     --epoch 200 --batch_size 32 --lr 1e-3 --weight_decay 1e-5
-    --dropout 0.1    "For Monte-Carlo based Bayesian Confidence calculation"
-    --mc_T           "How many time you want to ramdomly re-try"
+    --dropout 0.1     "For Monte-Carlo based Bayesian Confidence calculation"
+    --mc_T            "How many time you want to ramdomly re-try"
 
     [korean version]
-    --meta_csv       "개별 리간드에서 추출한 feature가 담긴 pt파일 경로를 저장한 meta-data.csv"
-    --graphs_root    "추출한 feature가 담긴 pt파일들이 모여있는 파일 경로"
-    --out_dir        "어디에 결과를 저장할건지"
+    --meta_csv        "개별 리간드에서 추출한 feature가 담긴 pt파일 경로를 저장한 meta-data.csv"
+    --graphs_root     "추출한 feature가 담긴 pt파일들이 모여있는 파일 경로"
+    --out_dir         "어디에 결과를 저장할건지"
 
-4개의 모델 GINEconv, GATv2, Transformer, GCN 을 Horizontal하게 쌓았습니다.
+4개의 모델 GINEconv, GATv2, Transformer, GCN 을 앙상블로 구성했습니다.
 각 모델 당 5개의 랜덤 Monte-Carlo Dropout을 통해, 추정의 불확실성을 정량측정하며,
 이를 통해 통계적으로 베이지안에 근사한 Heuristic 기법을 구현합니다.
-Affine calibration으로, 모델이 특정 Affinity값에만 집중되지 않도록 방지합니다.
+Affine calibration으로, 모델 예측값의 시스템적 편향을 보정합니다.
 총 200번의 epoch 중 25회 이상 val loss가 개선되지 않으면 Early stop합니다.
 
 """
@@ -45,13 +45,14 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from scipy.stats import pearsonr
 
 USE_PYG = False
 try:
-    from torch_geometric.nn import GCNConv, GATv2Conv, TransformerConv, GINEConv, global_mean_pool
+    from torch_geometric.nn import GCNConv, GATv2Conv, TransformerConv, GINEConv, global_mean_pool, GlobalAttention
     USE_PYG = True
     print("[info] torch_geometric's GNN layers are available.")
 except Exception:
@@ -163,6 +164,10 @@ class GNNMember(nn.Module):
                 self.convs.append(ConvLayer(in_dim, hidden_dim))
                 for _ in range(num_layers - 1):
                     self.convs.append(ConvLayer(hidden_dim, hidden_dim))
+            
+            # GlobalAttention 풀링 레이어 추가
+            self.attention_pool = GlobalAttention(gate_nn=nn.Linear(hidden_dim, 1))
+
         else:
             self.mlp_node = nn.Sequential(nn.Linear(in_dim, hidden_dim), nn.ReLU(), nn.Dropout(dropout))
         
@@ -179,9 +184,13 @@ class GNNMember(nn.Module):
                     h = conv(h, edge_index, edge_attr)
                 else:
                     h = conv(h, edge_index)
-                h = torch.relu(h)
+                # 활성화 함수를 ReLU에서 SiLU로 변경
+                h = F.silu(h)
                 h = self.dropout(h)
-            hg = global_mean_pool(h, batch_vec) if batch_vec is not None and batch_vec.numel() > 0 else h.mean(dim=0, keepdim=True)
+            
+            # 풀링을 global_mean_pool에서 GlobalAttention으로 변경
+            hg = self.attention_pool(h, batch_vec) if batch_vec is not None and batch_vec.numel() > 0 else h.mean(dim=0, keepdim=True)
+            
         else: # PyG 없을 때의 Fallback
             h_nodes = self.mlp_node(x) if x.numel() > 0 else torch.zeros((0, self.hidden_dim), device=x.device)
             if batch_vec is None or batch_vec.numel() == 0:
@@ -193,7 +202,7 @@ class GNNMember(nn.Module):
                 node_counts = torch.bincount(batch_vec, minlength=num_graphs).unsqueeze(1).clamp(min=1)
                 hg = hg / node_counts
             
-        out1 = self.head_gnina(hg).view(-1) # 오타 수정
+        out1 = self.head_gnina(hg).view(-1)
         out2 = self.head_vina(hg).view(-1)
         return torch.stack([out1, out2], dim=1)
 
@@ -377,6 +386,7 @@ def main(args):
                 break
         
         if args.save_checkpoints and best_model_path.exists():
+            print(f"Loading best model weights from: {best_model_path}")
             model.load_state_dict(torch.load(best_model_path))
 
     ## Ensemble sampling ##
