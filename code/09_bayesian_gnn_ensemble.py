@@ -166,11 +166,11 @@ class GNNMember(nn.Module):
             if 'gine' in self.conv_type:
                 if edge_dim is None:
                     raise ValueError("edge_dim must be specified for GINEConv")
-                    
-                self.convs.append(GINEConv(nn.Sequential(nn.Linear(in_dim, hidden_dim), nn.ReLU(), nn.BatchNorm1d(hidden_dim)), edge_dim=edge_dim))
+
+                self.convs.append(GINEConv(nn.Sequential(nn.Linear(in_dim, hidden_dim), nn.SiLU(), nn.BatchNorm1d(hidden_dim)), edge_dim=edge_dim))
                 for _ in range(num_layers - 1):
-                    self.convs.append(GINEConv(nn.Sequential(nn.Linear(hidden_dim, hidden_dim), nn.ReLU(), nn.BatchNorm1d(hidden_dim)), edge_dim=edge_dim))
-            
+                    self.convs.append(GINEConv(nn.Sequential(nn.Linear(hidden_dim, hidden_dim), nn.SiLU(), nn.BatchNorm1d(hidden_dim)), edge_dim=edge_dim))
+
             elif 'transformer' in self.conv_type:
                 if edge_dim is None:
                     raise ValueError("edge_dim must be specified for TransformerConv")
@@ -190,10 +190,10 @@ class GNNMember(nn.Module):
             self.attention_pool = AttentionalAggregation(gate_nn=nn.Linear(hidden_dim, 1))
             
         else:
-            self.mlp_node = nn.Sequential(nn.Linear(in_dim, hidden_dim), nn.ReLU(), nn.Dropout(dropout))
+            self.mlp_node = nn.Sequential(nn.Linear(in_dim, hidden_dim), nn.SiLU(), nn.Dropout(dropout))
         
-        self.head_gnina = nn.Sequential(nn.Linear(hidden_dim, hidden_dim//2), nn.ReLU(), nn.Linear(hidden_dim//2, 1))
-        self.head_vina = nn.Sequential(nn.Linear(hidden_dim, hidden_dim//2), nn.ReLU(), nn.Linear(hidden_dim//2, 1))
+        self.head_gnina = nn.Sequential(nn.Linear(hidden_dim, hidden_dim//2), nn.SiLU(), nn.Linear(hidden_dim//2, 1))
+        self.head_vina = nn.Sequential(nn.Linear(hidden_dim, hidden_dim//2), nn.SiLU(), nn.Linear(hidden_dim//2, 1))
 
     def forward(self, x, edge_index, batch_vec, edge_attr=None):
         if not isinstance(x, torch.Tensor): x = torch.tensor(x, dtype=torch.float, device=next(self.parameters()).device)
