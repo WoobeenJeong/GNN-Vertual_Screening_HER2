@@ -62,6 +62,7 @@ https://enamine.net/compound-collections/screening-collection
 
 # Abstract
 
+Building on the success of HER2-targeted therapies like tucatinib in breast cancer, the strategy is now being applied to other HER2-altered tumors.
 HER2-mutant metastatic non-small cell lung cancer (mNCLC), notably in Asian female non-smokers, demonstrates only modest benefit from current targeted therapies (≈30–50% ORR; median targeted therapy duration ~8 months) and lacks an FDA-approved standard, while resistance driven by wild-type HER2 relapse and exon-20 insertion variants remains inadequately addressed.<br>
 <br>
 <img width="2000" height="745" alt="image" src="https://github.com/user-attachments/assets/8430658c-3306-421e-98d6-28e04659f535" /><br>
@@ -108,24 +109,52 @@ Project directory structure on AWS EC2 (To preprocessing data):
 └─ scores/
    ├─ 07_generalize_output.ipynb
    ├─ 08_smiles_to_graph.py
+   ├─ own_docking_prediction_models.py
    ├─ input_graphs.csv                  ## Meta-data (n=97,956)    
    └─ graphs/
       └─*.pt
 ```
 
-# Autodock-GPU
+# Autodock-GPU (Vina affinity)
 
-I will describe it later on...
+Fast version of docking tool.
+- Physics-based prediction on small molecule (drug candidates) by their molecular interaction with target.
+- GPU acceleration allows fast screening of large compound libraries, purely physical scoring may miss subtle patterns.
 
-# GNINA
+# GNINA (CNN affinity)
 
+Modern version of docking tool.
+- Extends docking by integrating a convolutional neural network (CNN) to score ligand poses.
+- Improves pose ranking and virtual screening performance, especially for challenging targets, by capturing patterns AutoDock GPU alone may miss.
 
 # ML & DL based TOP-n compound picking
 
-- XGBoost    (Dohoon Kim)
-- LightGBM   (Dohoon Kim)
-- Ensemble   (Hyojin Kim)
-- GNN         
+<details>
+  <summary>XGBoost    (Dohoon Kim)</summary>
+
+   XGB : Uses gradient-boosted decision trees (GBDT) to iteratively correct errors from previous trees, optimizing predictive performance.
+
+</details>
+
+<details>
+  <summary>LightGBM   (Dohoon Kim)</summary>
+
+   LGBM : GBDT-based algorithm, optimized for speed and memory efficiency using leaf-wise tree growth instead of level-wise.
+   
+</details>
+
+<details>
+  <summary>Ensembled GNN   (Hyojin Kim, Woobeen Jeong)</summary>   
+
+   GCN : Basic convolutional networks for graph structured input.
+   
+   GATv2 : Uses attention to weigh neighbors dynamically, To improve representation of feature relations.
+   
+   Transformer-GNN : Combine graph structured input with self-attention to capture long-range dependancies.
+   
+   GINEconv : Encode edge and node features together to create rich graph profiles.
+
+</details>
 
 - " " shows the best performance and interpretation on druggability
 
