@@ -25,7 +25,7 @@ https://enamine.net/compound-collections/screening-collection
 
 # Abstract
 
-Building on the success of HER2-targeted therapies like tucatinib in breast cancer, the strategy is now being applied to other HER2-altered tumors.
+Building on the success of HER2-targeted therapies like tucatinib, the strategy is now being applied to other HER2-altered tumors.
 HER2-mutant metastatic non-small cell lung cancer (mNCLC), notably in Asian female non-smokers, demonstrates only modest benefit from current targeted therapies (≈30–50% ORR; median targeted therapy duration ~8 months) and lacks an FDA-approved standard, while resistance driven by wild-type HER2 relapse and exon-20 insertion variants remains inadequately addressed.<br>
 <br>
 <img width="2000" height="745" alt="image" src="https://github.com/user-attachments/assets/8430658c-3306-421e-98d6-28e04659f535" /><br>
