@@ -398,7 +398,7 @@ def load_graphs_for_gnn(meta_csv, graphs_root=None, to_pyg=True, replace_nan_wit
 
 def main():
     parser = argparse.ArgumentParser(description="Build graphs from batch*_score.txt and write metadata CSV")
-    parser.add_argument('--sdf_dir', type=str, required=True, help='Directory with batch*_score.txt files')
+    parser.add_argument('--sdf_dir', type=str, default='/home/ssm-user/project/scores', help='Directory with batch*_score.txt files')
     parser.add_argument('--out_csv', type=str, default=None, help='where to write processed_graphs.csv')
     parser.add_argument('--graphs_dir', type=str, default=None, help='directory to save .pt graph files')
     parser.add_argument('--use_pos', action='store_true', help='attempt to generate 3D coords (slow)')
