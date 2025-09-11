@@ -332,7 +332,6 @@ def main(args):
     std_train = np.where(std_train == 0, 1.0, std_train)
     print(f"[info] Train target mean: {mean_train.ravel()}, std: {std_train.ravel()}")
 
-    # <<<--- START: MODIFIED SECTION --- #
     def pearson_corr_loss(x, y):
         # Center the variables for Pearson correlation calculation
         vx = x - torch.mean(x)
@@ -351,10 +350,10 @@ def main(args):
         if not mask.any():
             return torch.tensor(0.0, device=preds.device, requires_grad=True)
 
-        # 1. MSE Loss (Original)
+        ## 1. MSE Loss
         mse_loss = nn.functional.mse_loss(preds[mask], y_norm[mask])
         
-        # 2. Pearson Correlation Loss (Added)
+        ## 2. Pearson Correlation Loss
         corr_loss_total = 0.0
         n_targets = preds.shape[1]
         valid_targets_for_corr = 0
@@ -363,8 +362,6 @@ def main(args):
             pred_i = preds[:, i]
             y_norm_i = y_norm[:, i]
             mask_i = ~torch.isnan(y_norm_i)
-            
-            # Pearson correlation requires at least 2 data points
             if mask_i.sum() < 2:
                 continue
             
@@ -376,9 +373,8 @@ def main(args):
 
         avg_corr_loss = corr_loss_total / valid_targets_for_corr if valid_targets_for_corr > 0 else 0.0
         
-        # 3. Combined Loss
+        ## 3. Combined Loss
         return mse_loss + args.lambda_corr * avg_corr_loss
-    # <<<--- END: MODIFIED SECTION --- #
 
     ensemble_specs = json.loads(args.ensemble_specs)
     ensemble_models = build_ensemble_from_specs(ensemble_specs, in_dim, device, args.hidden_dim, args.num_layers, args.dropout)
@@ -514,9 +510,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--weight_decay', type=float, default=1e-5)
-    # <<<--- START: MODIFIED SECTION --- #
     parser.add_argument('--lambda_corr', type=float, default=1.0, help="Weight for the Pearson correlation loss term.")
-    # <<<--- END: MODIFIED SECTION --- #
     parser.add_argument('--early_stopping_patience', type=int, default=25, help="Patience for early stopping.")
 
     ## model construction
