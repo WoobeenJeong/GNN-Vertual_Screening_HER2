@@ -231,7 +231,7 @@ class CCCLoss(nn.Module):
         y_var = torch.var(y)
         preds_var = torch.var(preds)
         
-        covariance = torch.mean((preds - preds_mean) * (y - y_mean)
+        covariance = torch.mean(preds - preds_mean) * (y - y_mean)
         ccc = (2 * covariance) / (preds_var + y_var + (preds_mean - y_mean)**2 + self.epsilon)
 
         return 1 - ccc
