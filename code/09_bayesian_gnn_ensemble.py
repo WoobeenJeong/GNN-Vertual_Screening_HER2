@@ -170,6 +170,15 @@ class GNNMember(nn.Module):
                 self.convs.append(GINEConv(nn.Sequential(nn.Linear(in_dim, hidden_dim), nn.ReLU(), nn.BatchNorm1d(hidden_dim)), edge_dim=edge_dim))
                 for _ in range(num_layers - 1):
                     self.convs.append(GINEConv(nn.Sequential(nn.Linear(hidden_dim, hidden_dim), nn.ReLU(), nn.BatchNorm1d(hidden_dim)), edge_dim=edge_dim))
+            
+            elif 'transformer' in self.conv_type:
+                if edge_dim is None:
+                    raise ValueError("edge_dim must be specified for TransformerConv")
+
+                self.convs.append(TransformerConv(in_dim, hidden_dim, edge_dim=edge_dim))
+                for _ in range(num_layers - 1):
+                    self.convs.append(TransformerConv(hidden_dim, hidden_dim, edge_dim=edge_dim))            
+            
             else:
                 ConvLayer = GCNConv
                 if 'gatv2' in self.conv_type: ConvLayer = GATv2Conv
