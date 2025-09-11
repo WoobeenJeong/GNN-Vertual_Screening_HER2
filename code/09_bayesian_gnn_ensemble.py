@@ -1,6 +1,31 @@
 #!/usr/bin/env python3
 """
-09_bayesian_gnn_ensemble.py
+Command Example:
+    
+    python 09_bayesian_gnn_ensemble.py
+
+Descriptions (Eng / Kor):
+
+    [critical options]
+    --meta_csv       "add path to csv file with meta-data"
+    --graphs_root    "add path that contains ligands.pt"
+    --out_dir        "add where to save output results"
+
+    [learning option defaults]
+    --epoch 200 --batch_size 32 --lr 1e-3 --weight_decay 1e-5
+    --dropout 0.1    "For Monte-Carlo based Bayesian Confidence calculation"
+    --mc_T           "How many time you want to ramdomly re-try"
+
+    [korean version]
+    --meta_csv       "개별 리간드에서 추출한 feature가 담긴 pt파일 경로를 저장한 meta-data.csv"
+    --graphs_root    "추출한 feature가 담긴 pt파일들이 모여있는 파일 경로"
+    --out_dir        "어디에 결과를 저장할건지
+
+4개의 모델 GINEconv, GATv2, Transformer, GCN 을 Horizontal하게 쌓았습니다.
+각 모델 당 5개의 랜덤 Monte-Carlo Dropout을 통해, 추정의 불확실성을 정량측정하며,
+이를 통해 통계적으로 베이지안에 근사한 Heuristic 기법을 구현합니다.
+Affine calibration으로, 모델이 특정 Affinity값에만 집중되지 않도록 방지합니다.
+총 200번의 epoch 중 25회 이상 val loss가 개선되지 않으면 Early stop합니다.
 
 """
 
