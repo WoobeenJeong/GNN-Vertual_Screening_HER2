@@ -150,22 +150,33 @@ class GNNMember(nn.Module):
         if self.use_pyg:
             self.convs = nn.ModuleList()
             
-            # GNN 레이어 동적 선택
+class GNNMember(nn.Module):
+    def __init__(self, in_dim, hidden_dim, num_layers, dropout, conv_type='gcn', edge_dim=None, use_pyg=USE_PYG):
+        super().__init__()
+        self.use_pyg = use_pyg and USE_PYG
+        self.conv_type = conv_type.lower()
+        self.dropout = nn.Dropout(dropout)
+        self.num_layers = num_layers
+        self.hidden_dim = hidden_dim
+
+        if self.use_pyg:
+            self.convs = nn.ModuleList()
+            
             if 'gine' in self.conv_type:
-                # GINEConv는 내부에 nn.Module을 필요로 함
-                self.convs.append(GINEConv(nn.Sequential(nn.Linear(in_dim, hidden_dim), nn.ReLU(), nn.BatchNorm1d(hidden_dim))))
+                if edge_dim is None:
+                    raise ValueError("edge_dim must be specified for GINEConv")
+                    
+                self.convs.append(GINEConv(nn.Sequential(nn.Linear(in_dim, hidden_dim), nn.ReLU(), nn.BatchNorm1d(hidden_dim)), edge_dim=edge_dim))
                 for _ in range(num_layers - 1):
-                    self.convs.append(GINEConv(nn.Sequential(nn.Linear(hidden_dim, hidden_dim), nn.ReLU(), nn.BatchNorm1d(hidden_dim))))
+                    self.convs.append(GINEConv(nn.Sequential(nn.Linear(hidden_dim, hidden_dim), nn.ReLU(), nn.BatchNorm1d(hidden_dim)), edge_dim=edge_dim))
             else:
                 ConvLayer = GCNConv
                 if 'gatv2' in self.conv_type: ConvLayer = GATv2Conv
                 elif 'transformer' in self.conv_type: ConvLayer = TransformerConv
-                
                 self.convs.append(ConvLayer(in_dim, hidden_dim))
                 for _ in range(num_layers - 1):
                     self.convs.append(ConvLayer(hidden_dim, hidden_dim))
             
-            # GlobalAttention 풀링 레이어 추가
             self.attention_pool = GlobalAttention(gate_nn=nn.Linear(hidden_dim, 1))
 
         else:
@@ -184,14 +195,13 @@ class GNNMember(nn.Module):
                     h = conv(h, edge_index, edge_attr)
                 else:
                     h = conv(h, edge_index)
-                # 활성화 함수를 ReLU에서 SiLU로 변경
+                    
                 h = F.silu(h)
                 h = self.dropout(h)
             
-            # 풀링을 global_mean_pool에서 GlobalAttention으로 변경
             hg = self.attention_pool(h, batch_vec) if batch_vec is not None and batch_vec.numel() > 0 else h.mean(dim=0, keepdim=True)
             
-        else: # PyG 없을 때의 Fallback
+        else:
             h_nodes = self.mlp_node(x) if x.numel() > 0 else torch.zeros((0, self.hidden_dim), device=x.device)
             if batch_vec is None or batch_vec.numel() == 0:
                 hg = h_nodes.mean(dim=0, keepdim=True)
@@ -252,18 +262,18 @@ def train_one_epoch_log(model, optimizer, train_loader, device, criterion):
         batch_losses.append(loss.item())
     return batch_losses
 
-def build_ensemble_from_specs(specs, in_dim, device, hidden_dim, num_layers, dropout):
+def build_ensemble_from_specs(specs, in_dim, device, hidden_dim, num_layers, dropout, edge_dim):
     models = []
     for spec in specs:
         seed = spec.get('seed', None)
         if seed is not None:
             torch.manual_seed(seed); np.random.seed(seed); random.seed(seed)
         conv_type = spec.get('conv_type', 'gcn')
-        m = GNNMember(in_dim, hidden_dim=hidden_dim, num_layers=num_layers, dropout=dropout, conv_type=conv_type)
+        m = GNNMember(in_dim, hidden_dim=hidden_dim, num_layers=num_layers, dropout=dropout, conv_type=conv_type, edge_dim=edge_dim)
         m.to(device)
         models.append(m)
     return models
-
+         
 # -------------------------
 # Monte-Carlo Sampling
 # -------------------------
@@ -346,6 +356,11 @@ def main(args):
 
     in_dim = next((d['x'].shape[1] for d in data_list if d['x'] is not None and d['x'].ndim == 2 and d['x'].shape[1] > 0), args.fallback_in_dim)
     print(f"[info] Determined input feature dimension (in_dim): {in_dim}")
+
+    edge_dim = next((d['edge_attr'].shape[1] for d in data_list if d.get('edge_attr') is not None and d['edge_attr'].ndim == 2 and d['edge_attr'].shape[1] > 0), None)    
+    print(f"[info] Determined input feature dimension (in_dim): {in_dim}")
+    print(f"[info] Determined edge feature dimension (edge_dim): {edge_dim}")
+
     y_train = np.array([d['y'].numpy() for d in train_list])
     mean_train = np.nanmean(y_train, axis=0, keepdims=True)
     std_train = np.nanstd(y_train, axis=0, keepdims=True)
@@ -403,7 +418,7 @@ def main(args):
         return ccc_loss_fn(preds_masked, y_norm_masked)
         
     ensemble_specs = json.loads(args.ensemble_specs)
-    ensemble_models = build_ensemble_from_specs(ensemble_specs, in_dim, device, args.hidden_dim, args.num_layers, args.dropout)
+    ensemble_models = build_ensemble_from_specs(ensemble_specs, in_dim, device, args.hidden_dim, args.num_layers, args.dropout, edge_dim=edge_dim)
     print(f"[info] Built ensemble with {len(ensemble_models)} members.")
 
     ## Ensemble learning ##
