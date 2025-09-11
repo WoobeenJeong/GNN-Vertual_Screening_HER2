@@ -7,43 +7,6 @@ For internal and educational use only. Do not redistribute without permission.
 
 ---
 
-# Timeline for collaborators (removed after completion)
-
-### [ 선정타겟 PDB ]
-
-8VB5 (특징: chain A / YVMA mutation)
-
-### [ 특이사항 ]
-
-8/13
-- HETATM 제거: EDO, PEG (Non-standard residue)
-- Native legand pdbqt : A1AAC (이미 tucatinib 붙는곳, 논문은 아직X)
-
-8/14
-- 10만개 리스트 5 split 분할
-
-8/16
-- 5 split 중, 2번 split에서 중복값 3개 제외
-- split별 통계적 유의성 검토
-
-8/17
-- maxit (RCSB) cif -> pdb 변환
-
-### [ 목표 ]
-
-*활동일지=줌캡쳐+요약
-
-8/20 = Autodock으로 도킹 완료(affinity, smiles 따오기)
-
-9/3 = 모델 완성 및 Top 뽑아서 새로 도킹(GININA로 score 뽑을 여유 있으면 수행)
-
-9/10 = Boltz structure 구성
-
-9/14 = 포스터 구성 완성
-
-
----
-
 The dataset is available at:
 
 ### [ Development set (100,160 compounds) ]
