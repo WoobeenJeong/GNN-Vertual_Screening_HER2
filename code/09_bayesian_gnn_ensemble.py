@@ -430,6 +430,16 @@ def main(args):
     ranks_s = np.argsort(-samples_orig[:, :, 0], axis=1).argsort(axis=1)
     mean_rank, std_rank = ranks_s.mean(axis=0), ranks_s.std(axis=0)
     rank_confidence = 1.0 - (mean_rank / (max(1, N - 1)))
+
+    mask_g = ~np.isnan(true_gnina) & ~np.isnan(pred_g_cal)
+    if mask_g.sum() > 1:
+        corr_g = pearsonr(true_gnina[mask_g], pred_g_cal[mask_g])[0]
+        print(f"\n[Performance] Final GNINA Pearson Correlation: {corr_g:.4f}")
+
+    mask_v = ~np.isnan(true_vina) & ~np.isnan(pred_v_cal)
+    if mask_v.sum() > 1:
+        corr_v = pearsonr(true_vina[mask_v], pred_v_cal[mask_v])[0]
+        print(f"[Performance] Final VINA  Pearson Correlation: {corr_v:.4f}\n")
     
     df_out = pd.DataFrame({
         'ligand_id': [d.get('ligand_id') for d in test_list],
