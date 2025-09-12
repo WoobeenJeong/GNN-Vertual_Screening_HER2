@@ -50,40 +50,136 @@ from rdkit.Chem import AllChem, rdMolDescriptors
 # 3D feature
 # --------------
 
-def get_global_features_from_mol(mol, num_confs=10):
+def _convex_hull_volume(positions):
+    try:
+        from scipy.spatial import ConvexHull
+    except Exception:
+        return float('nan')
+    try:
+        pts = np.asarray(positions)
+        if pts.shape[0] < 4:
+            return float('nan')
+        hull = ConvexHull(pts)
+        return float(hull.volume)
+    except Exception:
+        return float('nan')
+
+# SASA removed -> use 17-length global vector (8 d3 + 4 hinge + 1 warhead + 4 interaction = 17)
+GLOBAL_ATTR_SIZE = 17
+
+def get_global_features_from_mol(mol, num_confs=10, log_fn=print):
+    # hydrogen-bond SMARTS used later for donor/acceptor coordinate extraction
     h_bond_donors = Chem.MolFromSmarts('[$([N;!H0;v3,v4&+1]),$([O,S;H1;+0]),$([n;H1;+0])]')
     h_bond_acceptors = Chem.MolFromSmarts('[$([O,S;H1;v2;!$(*=O)]),$([O,S;H0;v2]),$([O,S;-]),$([N;v3;!$(N-*=!@[O,N,P,S])]),$([n;+0;-1]),$([o,s;+0;!$([o,s]:n);!$([o,s]:c:n)])]')
 
     try:
         mol_3d = Chem.AddHs(mol)
         params = AllChem.ETKDGv3()
-        params.randomSeed = 42
-        cids = AllChem.EmbedMultipleConfs(mol_3d, numConfs=num_confs, params=params)
+
+        # --- Embed conformers: be tolerant to different RDKit python wrappers ---
+        try:
+            # Preferred: pass useful keyword args (works on many builds)
+            cids = list(AllChem.EmbedMultipleConfs(
+                mol_3d,
+                numConfs=num_confs,
+                maxAttempts=200,
+                randomSeed=42,
+                pruneRmsThresh=0.1,
+                useRandomCoords=False
+            ))
+        except TypeError:
+            # Fallback: some RDKit builds don't accept some kwargs; try a simpler call
+            try:
+                cids = list(AllChem.EmbedMultipleConfs(
+                    mol_3d,
+                    numConfs=num_confs,
+                    maxAttempts=200,
+                    randomSeed=42
+                ))
+            except Exception:
+                # Last resort: try single EmbedMolecule with params (EmbedMolecule often accepts params)
+                try:
+                    rv = AllChem.EmbedMolecule(mol_3d, params)
+                    if rv != 0:
+                        return None, f"Failed to embed any conformers (EmbedMolecule returned {rv})."
+                    cids = [0]
+                except Exception as e_embed_final:
+                    return None, f"EmbedMultipleConfs/EmbedMolecule both failed: {e_embed_final}"
+
         if len(cids) == 0:
-            if AllChem.EmbedMolecule(mol_3d, params=params) == -1: return None, "Failed to embed molecule."
-            cids = [0]
-        res = AllChem.MMFFOptimizeMoleculeConfs(mol_3d, mmffVariant='MMFF94s')
-        cid_results = dict(zip(cids, res))
-        converged_cids = [cid for cid, (conv, energy) in cid_results.items() if conv == 0]
-        if not converged_cids: return None, "No conformers converged."
-        converged_energies = [cid_results[cid][1] for cid in converged_cids]
-        min_energy_cid = converged_cids[np.argmin(converged_energies)]
-        conf = mol_3d.GetConformer(min_energy_cid)
-        
-        vol_list, gyr_list = [], []
-        for cid in converged_cids:
-            # sasa_list.append(rdMolDescriptors.CalcSASA(mol_3d, confId=cid))
-            vol_list.append(AllChem.GetConformerVolume(mol_3d, confId=cid))
-            gyr_list.append(rdMolDescriptors.CalcRadiusOfGyration(mol_3d, confId=cid))
-        
-        # [수정 2] d3_descriptors 리스트에서 sasa 관련 부분 삭제
+            # safety: try EmbedMolecule
+            log_fn("EmbedMultipleConfs returned 0. Trying single EmbedMolecule with random coords.")
+            try:
+                params.useRandomCoords = True
+                rv = AllChem.EmbedMolecule(mol_3d, params)
+                if rv != 0:
+                    return None, "Failed to embed any conformers (EmbedMolecule returned != 0)."
+                cids = [0]
+            except Exception as e:
+                return None, f"Failed to embed conformers: {e}"
+
+        # Optimize conformers: try MMFF first, fallback to UFF
+        try:
+            mmff_res = AllChem.MMFFOptimizeMoleculeConfs(mol_3d, mmffVariant='MMFF94s')
+            cid_results = dict(zip(cids, mmff_res))
+            converged = [cid for cid,(conv,ene) in cid_results.items() if conv == 0]
+            if not converged:
+                log_fn("MMFF optimization did not converge for any conformer; attempting UFF.")
+                raise RuntimeError("MMFF no-converge")
+        except Exception as e_mmff:
+            try:
+                uff_res = AllChem.UFFOptimizeMoleculeConfs(mol_3d)
+                cid_results = dict(zip(cids, uff_res))
+                converged = [cid for cid,(conv,ene) in cid_results.items() if conv == 0]
+                if not converged:
+                    log_fn("UFF also didn't converge; proceeding with all generated conformers as fallback.")
+                    converged = cids
+            except Exception as e_uff:
+                log_fn(f"Both MMFF and UFF optimization failed: MMFF_err={e_mmff}, UFF_err={e_uff}")
+                converged = cids
+
+        # choose lowest-energy converged conformer if energies available
+        energies = []
+        for cid in converged:
+            entry = cid_results.get(cid)
+            if entry is None:
+                energies.append(float('nan'))
+            else:
+                energies.append(float(entry[1]))
+        if any([not np.isnan(e) for e in energies]):
+            min_idx = int(np.nanargmin(energies))
+            min_energy_cid = converged[min_idx]
+        else:
+            min_energy_cid = converged[0]
+
+        vol_list = []
+        gyr_list = []
+        for cid in converged:
+            try:
+                vol = float(AllChem.GetConformerVolume(mol_3d, confId=cid))
+            except Exception as e:
+                log_fn(f"[warn] GetConformerVolume failed for cid={cid}: {e}; will try convex-hull fallback.")
+                conf = mol_3d.GetConformer(cid)
+                pts = [conf.GetAtomPosition(i) for i in range(mol_3d.GetNumAtoms())]
+                pts_arr = np.array([[p.x,p.y,p.z] for p in pts])
+                vol = _convex_hull_volume(pts_arr)
+            vol_list.append(vol)
+
+            try:
+                rg = float(rdMolDescriptors.CalcRadiusOfGyration(mol_3d, confId=cid))
+            except Exception as e:
+                log_fn(f"[warn] CalcRadiusOfGyration failed for cid={cid}: {e}")
+                rg = float('nan')
+            gyr_list.append(rg)
+
+        # compose d3 descriptors (volume and radius of gyration statistics)
         d3_descriptors = [
-            # np.mean(sasa_list), np.std(sasa_list), np.min(sasa_list), np.max(sasa_list),
             np.mean(vol_list), np.std(vol_list), np.min(vol_list), np.max(vol_list),
             np.mean(gyr_list), np.std(gyr_list), np.min(gyr_list), np.max(gyr_list),
         ]
+
     except Exception as e:
-        return None, f"An error occurred in 3D generation part: {e}"
+        return None, f"An error occurred in 3D generation: {e}"
 
     ## Hindge binding motifs (0/1) ##
     hinge_patterns = {
@@ -121,7 +217,14 @@ def get_global_features_from_mol(mol, num_confs=10):
         1.0 if min_dist_ser783 < 3.5 else 0.0,
     ]
 
-    global_attr = torch.tensor(d3_descriptors + hinge_features + [has_covalent_warhead] + interaction_features, dtype=torch.float)
+    vec = d3_descriptors + hinge_features + [has_covalent_warhead] + interaction_features
+    # ensure fixed length
+    if len(vec) < GLOBAL_ATTR_SIZE:
+        vec += [0.0] * (GLOBAL_ATTR_SIZE - len(vec))
+    elif len(vec) > GLOBAL_ATTR_SIZE:
+        vec = vec[:GLOBAL_ATTR_SIZE]
+
+    global_attr = torch.tensor(vec, dtype=torch.float)
     return global_attr, "Success"
 
 # --------------
@@ -395,7 +498,7 @@ def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, u
             if global_attr is None:
                 print(f"  [warn] Failed to generate 3D/Hinge features for {ligand_id}. Using zeros instead.")
                 print(f"  [DEBUG] Reason: {message}")
-                global_attr = torch.zeros(17, dtype=torch.float)
+                global_attr = torch.zeros(GLOBAL_ATTR_SIZE, dtype=torch.float)
 
             ## Graph Component ## 
             
