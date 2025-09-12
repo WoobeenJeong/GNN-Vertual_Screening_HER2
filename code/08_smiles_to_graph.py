@@ -2,6 +2,30 @@
 """
 Command Example:
     python 08_smiles_to_graph.py --sdf_dir /path/to/where/score.txt/is --use_pos False
+
+Created Features:
+
+[ 12 Edges ]
+
+    1. bond type (Single, Aromatic, Double, Triple) = 4
+    2. stereo type (Cis, Trans, E/Z, ...)           = 6
+    3. ring_bond
+    4. conjugate
+
+[ 111 Nodes ]
+
+    1. atom type (H, O, ..., Mg, ...)       = 18
+    2. hybrid type (sp2, sp3, ...)          = 7
+    3. degree (1, 2, 3, ...)                = 6
+    4. # of H (1, 2, 3, ...)                = 5
+    5. chirality (cw, ccw, ...)             = 4
+    6. structural (arom, ring, ...)         = 4
+    7. interaction (hbd, hba, halogen, ...) = 5
+
+    8. gasteiger charge (Gaussian Embeded)  = 11
+    9. atomic properties (Gaussian Embeded) = 30
+    10. atom mass (Gaussian Embeded)        = 21
+    
 """
 
 import os
