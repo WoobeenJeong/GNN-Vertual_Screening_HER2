@@ -52,6 +52,10 @@ from rdkit.Chem import AllChem, rdMolDescriptors
 # --------------
 
 def get_global_features_from_mol(mol, num_confs=10):
+    # [수정 1] 함수 시작 부분에 h-bond donor/acceptor SMARTS 패턴 정의
+    h_bond_donors = Chem.MolFromSmarts('[$([N;!H0;v3,v4&+1]),$([O,S;H1;+0]),$([n;H1;+0])]')
+    h_bond_acceptors = Chem.MolFromSmarts('[$([O,S;H1;v2;!$(*=O)]),$([O,S;H0;v2]),$([O,S;-]),$([N;v3;!$(N-*=!@[O,N,P,S])]),$([n;+0;-1]),$([o,s;+0;!$([o,s]:n);!$([o,s]:c:n)])]')
+
     try:
         mol_3d = Chem.AddHs(mol)
         params = AllChem.ETKDGv3()
@@ -59,15 +63,21 @@ def get_global_features_from_mol(mol, num_confs=10):
         cids = AllChem.EmbedMultipleConfs(mol_3d, numConfs=num_confs, params=params)
 
         if len(cids) == 0:
-            if AllChem.EmbedMolecule(mol_3d, params=params) == -1: return None
+            if AllChem.EmbedMolecule(mol_3d, params=params) == -1:
+                # [수정 2] TypeError 방지를 위해 항상 2개의 값 반환
+                return None, "Failed to embed molecule (EmbedMolecule returned -1)."
             cids = [0]
         
         res = AllChem.MMFFOptimizeMoleculeConfs(mol_3d, mmffVariant='MMFF94s')
         converged_confs = [cid for cid, (conv, energy) in zip(cids, res) if conv == 0]
-        if not converged_confs: return None
+        if not converged_confs:
+            # [수정 2] TypeError 방지를 위해 항상 2개의 값 반환
+            return None, "No conformers converged during MMFF optimization."
 
+        # [수정 3] NameError 해결을 위해 energies와 conf 변수를 올바르게 정의
         energies = [item[1] for item in res if item[0] in converged_confs]
-        if not energies: return None
+        if not energies:
+            return None, "Energy list is empty after filtering converged conformers."
         min_energy_cid = converged_confs[np.argmin(energies)]
         conf = mol_3d.GetConformer(min_energy_cid)
         
@@ -77,7 +87,8 @@ def get_global_features_from_mol(mol, num_confs=10):
             vol_list.append(AllChem.GetConformerVolume(mol_3d, confId=cid))
             gyr_list.append(rdMolDescriptors.CalcRadiusOfGyration(mol_3d, confId=cid))
         
-        if not sasa_list: return None
+        if not sasa_list:
+            return None, "SASA list is empty after processing converged conformers."
 
         d3_descriptors = [
             np.mean(sasa_list), np.std(sasa_list), np.min(sasa_list), np.max(sasa_list),
@@ -85,13 +96,9 @@ def get_global_features_from_mol(mol, num_confs=10):
             np.mean(gyr_list), np.std(gyr_list), np.min(gyr_list), np.max(gyr_list),
         ]
     except Exception as e:
-        print(f"  [DEBUG] An error occurred in 3D generation part: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
+        return None, f"An error occurred in 3D generation part: {e}"
 
     ## Hindge binding motifs (0/1) ##
-    
     hinge_patterns = {
         'quinazoline': Chem.MolFromSmarts('c12ccccc1nc(N)cn2'),
         'pyrimidine': Chem.MolFromSmarts('c1c(N)ccnc1N'),
@@ -100,13 +107,11 @@ def get_global_features_from_mol(mol, num_confs=10):
     }
     hinge_features = [1.0 if mol.HasSubstructMatch(p) else 0.0 for p in hinge_patterns.values()]
 
-    ## Warehead ##
-
+    ## Warhead ##
     acrylamide_pattern = Chem.MolFromSmarts('C=CC(=O)N')
     has_covalent_warhead = 1.0 if mol.HasSubstructMatch(acrylamide_pattern) else 0.0
 
     ## Backbone interaction ##
-    
     donor_coords = [conf.GetAtomPosition(idx) for idx in mol_3d.GetSubstructMatches(h_bond_donors)[0]] if mol_3d.HasSubstructMatch(h_bond_donors) else []
     acceptor_coords = [conf.GetAtomPosition(idx) for idx in mol_3d.GetSubstructMatches(h_bond_acceptors)[0]] if mol_3d.HasSubstructMatch(h_bond_acceptors) else []
 
@@ -123,15 +128,15 @@ def get_global_features_from_mol(mol, num_confs=10):
     min_dist_ser783 = min([np.linalg.norm(np.array(pos) - mock_positions['Ser783_hydroxyl']) for pos in acceptor_coords]) if acceptor_coords else 99.9
 
     interaction_features = [
-        1.0 if min_dist_met801 < 3.5 else 0.0, 
-        1.0 if min_dist_cys805 < 2.5 else 0.0, 
-        1.0 if min_dist_asp863 < 3.5 else 0.0, 
-        1.0 if min_dist_ser783 < 3.5 else 0.0, 
-    ]  
+        1.0 if min_dist_met801 < 3.5 else 0.0,
+        1.0 if min_dist_cys805 < 2.5 else 0.0,
+        1.0 if min_dist_asp863 < 3.5 else 0.0,
+        1.0 if min_dist_ser783 < 3.5 else 0.0,
+    ]
 
     global_attr = torch.tensor(d3_descriptors + hinge_features + [has_covalent_warhead] + interaction_features, dtype=torch.float)
     
-    return global_attr
+    return global_attr, "Success"
 
 # --------------
 # SMILES PARSE
@@ -400,10 +405,11 @@ def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, u
 
             ## 3D structure ##
             
-            global_attr = get_global_features_from_mol(mol, num_confs=args.num_confs)
+            global_attr, message = get_global_features_from_mol(mol, num_confs=args.num_confs)
             if global_attr is None:
-                print(f"  [skip] Failed to generate 3D/Hinge features for {ligand_id}")
-                continue
+                print(f"  [warn] Failed to generate 3D/Hinge features for {ligand_id}. Using zeros instead.")
+                print(f"  [DEBUG] Reason: {message}")
+                global_attr = torch.zeros(21, dtype=torch.float)
 
             ## Graph Component ## 
             
