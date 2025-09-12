@@ -28,13 +28,12 @@ Created Features:
 
 [ 3D structure ]
 
-    1. solvent accessible surface area      = 4
-    2. molecular volume                     = 4
-    3. radius of gyration                   = 4
+    1. molecular volume                     = 4
+    2. radius of gyration                   = 4
 
-    4. HER2 TKI specific hindge motif       = 4
-    5. Cys805 Covalent Warhead
-    6. Met801, Cys805, Asp863, Ser783 interaction
+    3. HER2 TKI specific hindge motif       = 4
+    4. Cys805 Covalent Warhead              = 1
+    5. Met801, Cys805, Asp863, Ser783 inter = 4
     
 """
 
@@ -52,7 +51,6 @@ from rdkit.Chem import AllChem, rdMolDescriptors
 # --------------
 
 def get_global_features_from_mol(mol, num_confs=10):
-    # [수정 1] 함수 시작 부분에 h-bond donor/acceptor SMARTS 패턴 정의
     h_bond_donors = Chem.MolFromSmarts('[$([N;!H0;v3,v4&+1]),$([O,S;H1;+0]),$([n;H1;+0])]')
     h_bond_acceptors = Chem.MolFromSmarts('[$([O,S;H1;v2;!$(*=O)]),$([O,S;H0;v2]),$([O,S;-]),$([N;v3;!$(N-*=!@[O,N,P,S])]),$([n;+0;-1]),$([o,s;+0;!$([o,s]:n);!$([o,s]:c:n)])]')
 
@@ -61,37 +59,26 @@ def get_global_features_from_mol(mol, num_confs=10):
         params = AllChem.ETKDGv3()
         params.randomSeed = 42
         cids = AllChem.EmbedMultipleConfs(mol_3d, numConfs=num_confs, params=params)
-
         if len(cids) == 0:
-            if AllChem.EmbedMolecule(mol_3d, params=params) == -1:
-                # [수정 2] TypeError 방지를 위해 항상 2개의 값 반환
-                return None, "Failed to embed molecule (EmbedMolecule returned -1)."
+            if AllChem.EmbedMolecule(mol_3d, params=params) == -1: return None, "Failed to embed molecule."
             cids = [0]
-        
         res = AllChem.MMFFOptimizeMoleculeConfs(mol_3d, mmffVariant='MMFF94s')
-        converged_confs = [cid for cid, (conv, energy) in zip(cids, res) if conv == 0]
-        if not converged_confs:
-            # [수정 2] TypeError 방지를 위해 항상 2개의 값 반환
-            return None, "No conformers converged during MMFF optimization."
-
-        # [수정 3] NameError 해결을 위해 energies와 conf 변수를 올바르게 정의
-        energies = [item[1] for item in res if item[0] in converged_confs]
-        if not energies:
-            return None, "Energy list is empty after filtering converged conformers."
-        min_energy_cid = converged_confs[np.argmin(energies)]
+        cid_results = dict(zip(cids, res))
+        converged_cids = [cid for cid, (conv, energy) in cid_results.items() if conv == 0]
+        if not converged_cids: return None, "No conformers converged."
+        converged_energies = [cid_results[cid][1] for cid in converged_cids]
+        min_energy_cid = converged_cids[np.argmin(converged_energies)]
         conf = mol_3d.GetConformer(min_energy_cid)
         
-        sasa_list, vol_list, gyr_list = [], [], []
-        for cid in converged_confs:
-            sasa_list.append(rdMolDescriptors.CalcSASA(mol_3d, confId=cid))
+        vol_list, gyr_list = [], []
+        for cid in converged_cids:
+            # sasa_list.append(rdMolDescriptors.CalcSASA(mol_3d, confId=cid))
             vol_list.append(AllChem.GetConformerVolume(mol_3d, confId=cid))
             gyr_list.append(rdMolDescriptors.CalcRadiusOfGyration(mol_3d, confId=cid))
         
-        if not sasa_list:
-            return None, "SASA list is empty after processing converged conformers."
-
+        # [수정 2] d3_descriptors 리스트에서 sasa 관련 부분 삭제
         d3_descriptors = [
-            np.mean(sasa_list), np.std(sasa_list), np.min(sasa_list), np.max(sasa_list),
+            # np.mean(sasa_list), np.std(sasa_list), np.min(sasa_list), np.max(sasa_list),
             np.mean(vol_list), np.std(vol_list), np.min(vol_list), np.max(vol_list),
             np.mean(gyr_list), np.std(gyr_list), np.min(gyr_list), np.max(gyr_list),
         ]
@@ -135,7 +122,6 @@ def get_global_features_from_mol(mol, num_confs=10):
     ]
 
     global_attr = torch.tensor(d3_descriptors + hinge_features + [has_covalent_warhead] + interaction_features, dtype=torch.float)
-    
     return global_attr, "Success"
 
 # --------------
@@ -409,7 +395,7 @@ def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, u
             if global_attr is None:
                 print(f"  [warn] Failed to generate 3D/Hinge features for {ligand_id}. Using zeros instead.")
                 print(f"  [DEBUG] Reason: {message}")
-                global_attr = torch.zeros(21, dtype=torch.float)
+                global_attr = torch.zeros(17, dtype=torch.float)
 
             ## Graph Component ## 
             
