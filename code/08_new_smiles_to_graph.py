@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Command Example:
-    python 08_smiles_to_graph.py --sdf_dir /path/to/where/score.txt/is --use_pos False
+    python 08_new_smiles_to_graph.py
 
 Created Features:
 
@@ -25,6 +25,16 @@ Created Features:
     8. gasteiger charge (Gaussian Embeded)  = 11
     9. atomic properties (Gaussian Embeded) = 30
     10. atom mass (Gaussian Embeded)        = 21
+
+[ 3D structure ]
+
+    1. solvent accessible surface area      = 4
+    2. molecular volume                     = 4
+    3. radius of gyration                   = 4
+
+    4. HER2 TKI specific hindge motif       = 4
+    5. Cys805 Covalent Warhead
+    6. Met801, Cys805, Asp863, Ser783 interaction
     
 """
 
@@ -41,7 +51,7 @@ from rdkit.Chem import AllChem, rdMolDescriptors
 # 3D feature
 # --------------
 
-def get_global_features_from_mol(mol, num_confs=50):
+def get_global_features_from_mol(mol, num_confs=10):
     try:
         mol_3d = Chem.AddHs(mol)
         params = AllChem.ETKDGv3()
@@ -74,15 +84,44 @@ def get_global_features_from_mol(mol, num_confs=50):
 
     ## Hindge binding motifs (0/1) ##
     
-    quinazoline_pattern = Chem.MolFromSmarts('c12ccccc1nc(N)cn2')
-    pyrimidine_pattern = Chem.MolFromSmarts('c1c(N)ccnc1N') 
+    hinge_patterns = {
+        'quinazoline': Chem.MolFromSmarts('c12ccccc1nc(N)cn2'),
+        'pyrimidine': Chem.MolFromSmarts('c1c(N)ccnc1N'),
+        'purine': Chem.MolFromSmarts('c12c(nc(N)nc1)ncn2'),
+        'pyrrolopyrimidine': Chem.MolFromSmarts('c1c2c(nc(N)n1)cncn2')
+    }
+    hinge_features = [1.0 if mol.HasSubstructMatch(p) else 0.0 for p in hinge_patterns.values()]
+
+    ## Warehead ##
+
+    acrylamide_pattern = Chem.MolFromSmarts('C=CC(=O)N')
+    has_covalent_warhead = 1.0 if mol.HasSubstructMatch(acrylamide_pattern) else 0.0
+
+    ## Backbone interaction ##
     
-    has_quinazoline = 1.0 if mol.HasSubstructMatch(quinazoline_pattern) else 0.0
-    has_pyrimidine = 1.0 if mol.HasSubstructMatch(pyrimidine_pattern) else 0.0
+    donor_coords = [conf.GetAtomPosition(idx) for idx in mol_3d.GetSubstructMatches(h_bond_donors)[0]] if mol_3d.HasSubstructMatch(h_bond_donors) else []
+    acceptor_coords = [conf.GetAtomPosition(idx) for idx in mol_3d.GetSubstructMatches(h_bond_acceptors)[0]] if mol_3d.HasSubstructMatch(h_bond_acceptors) else []
 
-    hinge_features = [has_quinazoline, has_pyrimidine]
+    mock_positions = {
+        'Met801_backbone': np.array([-1.0, 7.0, -16.0]),
+        'Cys805_sulfur': np.array([-3.0, 4.0, -19.0]),
+        'Asp863_carboxyl': np.array([2.0, 9.0, -21.0]),
+        'Ser783_hydroxyl': np.array([1.5, 5.0, -15.0])
+    }
 
-    global_attr = torch.tensor(d3_descriptors + hinge_features, dtype=torch.float)
+    min_dist_met801 = min([np.linalg.norm(np.array(pos) - mock_positions['Met801_backbone']) for pos in acceptor_coords + donor_coords]) if acceptor_coords or donor_coords else 99.9
+    min_dist_cys805 = min([np.linalg.norm(np.array(pos) - mock_positions['Cys805_sulfur']) for pos in conf.GetPositions()])
+    min_dist_asp863 = min([np.linalg.norm(np.array(pos) - mock_positions['Asp863_carboxyl']) for pos in donor_coords]) if donor_coords else 99.9
+    min_dist_ser783 = min([np.linalg.norm(np.array(pos) - mock_positions['Ser783_hydroxyl']) for pos in acceptor_coords]) if acceptor_coords else 99.9
+
+    interaction_features = [
+        1.0 if min_dist_met801 < 3.5 else 0.0, 
+        1.0 if min_dist_cys805 < 2.5 else 0.0, 
+        1.0 if min_dist_asp863 < 3.5 else 0.0, 
+        1.0 if min_dist_ser783 < 3.5 else 0.0, 
+    ]  
+
+    global_attr = torch.tensor(d3_descriptors + hinge_features + [has_covalent_warhead] + interaction_features, dtype=torch.float)
     
     return global_attr
 
@@ -101,10 +140,6 @@ def gaussian_embedding(value, centers, sigma=1.0):
     return [np.exp(-0.5 * ((value - c) / sigma) ** 2) for c in centers]
 
 def convert_mol_to_graph_gnina_like(mol, use_pos=False):
-    """
-    Convert RDKit mol to graph components used in GNN pipeline.
-    Returns: (edge_index, node_attr, edge_attr, pos_or_None, edge_weight)
-    """
     mol2 = Chem.RemoveHs(mol)
     n_bonds = len(mol2.GetBonds())
     n_atoms = len(mol2.GetAtoms())
@@ -250,10 +285,7 @@ def convert_mol_to_graph_gnina_like(mol, use_pos=False):
 # --------------
 # Build Graph
 # --------------
-def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, use_pos=False):
-    """
-    Walk through SDF_DIR for batch*_score.txt, parse rows, convert SMILES->graph, save .pt and metadata CSV.
-    """
+def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, use_pos=False, args=None):
     if out_csv_path is None: out_csv_path = os.path.join(SDF_DIR, "processed_graphs.csv")
     if graphs_dir is None: graphs_dir = os.path.join(SDF_DIR, "graphs")
     os.makedirs(graphs_dir, exist_ok=True)
@@ -268,15 +300,14 @@ def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, u
     for fpath in files:
         batch_name = os.path.basename(fpath)
         print(f"Processing {batch_name} ...")
-        # try pandas auto-detect separator
         try:
             df = pd.read_csv(fpath, sep=None, engine='python')
         except Exception:
             df = pd.read_csv(fpath, sep='\t', engine='python')
-
         columns_lower = {c.lower(): c for c in df.columns}
 
-        # SMILES column
+        ## GET SMILES ##
+        
         smiles_col = None
         for candidate in ['smiles', 'smile', 'smilestring']:
             if candidate in columns_lower:
@@ -288,7 +319,8 @@ def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, u
         if smiles_col is None:
             raise ValueError(f"Could not find SMILES column in {fpath}. Columns: {df.columns.tolist()}")
 
-        # VINA / binding affinity candidates (more exhaustive)
+        ## Get VINA ##
+        
         vina_col = None
         vina_candidates = ['vina_affinity','vina affinity','vina','binding_affinity_kcal_mol',
                            'binding affinity (kcal/mol)','binding affinity','binding_affinity','affinity','score']
@@ -301,7 +333,8 @@ def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, u
                 if 'vina' in lc or ('binding' in lc and 'kcal' in lc) or ('affin' in lc and 'cnn' not in lc):
                     vina_col = c; break
 
-        # GNINA / CNN candidates
+        ## Get GNINA ##
+        
         gnina_col = None
         gnina_candidates = ['gnina_affinity','gnina affinity','gnina','cnnaffinity','cnn affinity','cnscore','cnnaff','cnn_affinity']
         for cand in gnina_candidates:
@@ -312,20 +345,15 @@ def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, u
                 lc = c.lower()
                 if 'gnina' in lc or ('cnn' in lc and 'aff' in lc) or 'cnn' in lc:
                     gnina_col = c; break
-
-        # Debug print detected columns
         print(f"  Detected columns for file {batch_name}: smiles='{smiles_col}', vina='{vina_col}', gnina/cnn='{gnina_col}'")
 
-        # iterate rows and convert
         for idx, row in df.iterrows():
             total += 1
             smiles = str(row[smiles_col]).strip()
             ligand_id = row.get('Ligand', row.get('ligand', row.get('ligand_id', f"{os.path.splitext(batch_name)[0]}_{idx}")))
-            # raw values
             ba_val_raw = row.get(vina_col, None) if vina_col is not None else None
             cnn_val_raw = row.get(gnina_col, None) if gnina_col is not None else None
 
-            # parse smiles robustly
             mol = None
             try:
                 mol = Chem.MolFromSmiles(smiles)
@@ -349,11 +377,18 @@ def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, u
                     mol = None
 
             if mol is None:
-                # cannot parse -> skip
                 print(f"  [skip] cannot parse SMILES for ligand_id={ligand_id} smiles='{smiles[:50]}'")
                 continue
 
-            # Convert to graph
+            ## 3D structure ##
+            
+            global_attr = get_global_features_from_mol(mol, num_confs=args.num_confs)
+            if global_attr is None:
+                print(f"  [skip] Failed to generate 3D/Hinge features for {ligand_id}")
+                continue
+
+            ## Graph Component ## 
+            
             try:
                 res = convert_mol_to_graph_gnina_like(mol, use_pos=use_pos)
                 if res is None:
@@ -363,14 +398,16 @@ def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, u
             except Exception as e:
                 print(f"  [skip] conversion error for ligand_id={ligand_id} idx={idx} : {e}")
                 continue
-
-            # save graph object
+            
+            ## Save ##
+            
             safe_name = f"{os.path.splitext(batch_name)[0]}_{idx}_{str(ligand_id)}".replace(os.sep, "_").replace(" ", "_")
             graph_path = os.path.join(graphs_dir, safe_name + ".pt")
             graph_obj = {
                 "edge_index": edge_index.cpu() if isinstance(edge_index, torch.Tensor) else edge_index,
                 "node_attr": node_attr.cpu() if isinstance(node_attr, torch.Tensor) else node_attr,
                 "edge_attr": edge_attr.cpu() if isinstance(edge_attr, torch.Tensor) else edge_attr,
+                "global_attr" : global_attr.cpu() if isinstance(global_attr, torch.Tensor) else global_attr,
                 "pos": pos.cpu() if isinstance(pos, torch.Tensor) else pos,
                 "edge_weight": edge_weight.cpu() if isinstance(edge_weight, torch.Tensor) else edge_weight,
                 "smiles": smiles,
@@ -477,9 +514,10 @@ def main():
     parser.add_argument('--out_csv', type=str, default=None, help='where to write processed_graphs.csv')
     parser.add_argument('--graphs_dir', type=str, default=None, help='directory to save .pt graph files')
     parser.add_argument('--use_pos', action='store_true', help='attempt to generate 3D coords (slow)')
+    parser.add_argument('--num_confs', type=int, default=10, help='Number of conformers to generate per molecule.')
     args = parser.parse_args()
 
-    build_graphs_from_batch_files(args.sdf_dir, out_csv_path=args.out_csv, graphs_dir=args.graphs_dir, use_pos=args.use_pos)
+    build_graphs_from_batch_files(args.sdf_dir, out_csv_path=args.out_csv, graphs_dir=args.graphs_dir, use_pos=args.use_pos, args=args)
 
 if __name__ == '__main__':
     main()
