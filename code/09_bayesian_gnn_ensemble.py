@@ -375,27 +375,112 @@ def main(args):
     std_train = np.where(std_train == 0, 1.0, std_train)
     print(f"[info] Train target mean: {mean_train.ravel()}, std: {std_train.ravel()}")
 
+    # -------------------------
+    # Loss functions
+    # -------------------------
+    
     ccc_loss_fn = CCCLoss()
+    mse_loss_fn = nn.MSELoss(reduction='mean')
+    EPS = 1e-8
+
+    def pearson_loss_torch(pred, target):
+        if pred.numel() == 0:
+            return torch.tensor(0.0, device=pred.device)
+        pred_mean = torch.mean(pred)
+        target_mean = torch.mean(target)
+        pred_c = pred - pred_mean
+        targ_c = target - target_mean
+        cov = torch.mean(pred_c * targ_c)
+        pred_var = torch.mean(pred_c * pred_c)
+        targ_var = torch.mean(targ_c * targ_c)
+        denom = torch.sqrt(pred_var * targ_var) + EPS
+        corr = cov / denom
+        corr = torch.clamp(corr, -1.0, 1.0)
+        return 1.0 - corr
+
+    def masked_mse(pred, target, mask):
+        if mask.sum() == 0:
+            return torch.tensor(0.0, device=pred.device)
+        p = pred[mask]
+        t = target[mask]
+        return mse_loss_fn(p, t)
+
+    def masked_ccc(pred, target, mask):
+        if mask.sum() <= 1:
+            return torch.tensor(0.0, device=pred.device)
+        return ccc_loss_fn(pred[mask], target[mask])
+
     def criterion(preds, y):
-        y_norm = (y - torch.tensor(mean_train, dtype=torch.float, device=preds.device)) / torch.tensor(std_train, dtype=torch.float, device=preds.device)
-        mask_gnina = ~torch.isnan(y_norm[:, 0])
-        if mask_gnina.sum() > 1:
-            loss_gnina = ccc_loss_fn(preds[:, 0][mask_gnina], y_norm[:, 0][mask_gnina])
+        loss_gnina = torch.tensor(0.0, device=preds.device)
+        loss_vina = torch.tensor(0.0, device=preds.device)
+
+        mask_g = ~torch.isnan(y[:, 0])
+        mask_v = ~torch.isnan(y[:, 1])
+
+        pred_g = preds[:, 0]
+        pred_v = preds[:, 1]
+        y_g = y[:, 0]
+        y_v = y[:, 1]
+
+        if args.loss == 'ccc':
+            # Concordance Correlation Coefficient loss (as before)
+            if mask_g.sum() > 1:
+                loss_gnina = masked_ccc(pred_g, y_g, mask_g)
+            if mask_v.sum() > 1:
+                loss_vina = masked_ccc(pred_v, y_v, mask_v)
+            total_loss = loss_gnina + loss_vina
+
+        elif args.loss == 'mse':
+            # Mean squared error (use mse_w as multiplier)
+            w = float(args.mse_w)
+            if mask_g.sum() > 0:
+                loss_gnina = masked_mse(pred_g, y_g, mask_g)
+            if mask_v.sum() > 0:
+                loss_vina = masked_mse(pred_v, y_v, mask_v)
+            total_loss = w * (loss_gnina + loss_vina)
+
+        elif args.loss == 'cor':
+            # Pearson-based loss (1 - corr) (use cor_w as multiplier)
+            w = float(args.cor_w)
+            if mask_g.sum() > 1:
+                loss_gnina = pearson_loss_torch(pred_g[mask_g], y_g[mask_g])
+            if mask_v.sum() > 1:
+                loss_vina = pearson_loss_torch(pred_v[mask_v], y_v[mask_v])
+            total_loss = w * (loss_gnina + loss_vina)
+
+        elif args.loss == 'mse_cor':
+            # Combined objective: mse_w * MSE + cor_w * PearsonLoss
+            mse_w = float(args.mse_w)
+            cor_w = float(args.cor_w)
+            mse_term = torch.tensor(0.0, device=preds.device)
+            cor_term = torch.tensor(0.0, device=preds.device)
+            if mask_g.sum() > 0:
+                mse_term = masked_mse(pred_g, y_g, mask_g)
+            if mask_v.sum() > 0:
+                mse_term = mse_term + masked_mse(pred_v, y_v, mask_v)
+            if mask_g.sum() > 1:
+                cor_term = cor_term + pearson_loss_torch(pred_g[mask_g], y_g[mask_g])
+            if mask_v.sum() > 1:
+                cor_term = cor_term + pearson_loss_torch(pred_v[mask_v], y_v[mask_v])
+            total_loss = mse_w * mse_term + cor_w * cor_term
+
         else:
-            loss_gnina = torch.tensor(0.0, device=preds.device)
-        mask_vina = ~torch.isnan(y_norm[:, 1])
-        if mask_vina.sum() > 1:
-            loss_vina = ccc_loss_fn(preds[:, 1][mask_vina], y_norm[:, 1][mask_vina])
-        else:
-            loss_vina = torch.tensor(0.0, device=preds.device)
-        total_loss = loss_gnina + loss_vina
+            # fallback to CCC if invalid option (shouldn't happen due to argparse choices)
+            if mask_g.sum() > 1:
+                loss_gnina = masked_ccc(pred_g, y_g, mask_g)
+            if mask_v.sum() > 1:
+                loss_vina = masked_ccc(pred_v, y_v, mask_v)
+            total_loss = loss_gnina + loss_vina
+
         return total_loss
         
     ensemble_specs = json.loads(args.ensemble_specs)
     ensemble_models = build_ensemble_from_specs(ensemble_specs, in_dim, device, args.hidden_dim, args.num_layers, args.dropout, edge_dim=edge_dim)
     print(f"[info] Built ensemble with {len(ensemble_models)} members.")
 
-    ## Ensemble learning ##
+    # -------------------------
+    # Ensemble learning
+    # -------------------------
     
     all_epoch_logs = []
 
@@ -457,13 +542,17 @@ def main(args):
     log_df.to_csv(log_csv_path, index=False)
     print(f"\n[info] Saved epoch-by-epoch training and validation logs to: {log_csv_path}")
 
-    ## Ensemble sampling ##
+    # -------------------------
+    # Ensemble sampling
+    # -------------------------
     
     S_samples = sample_ensemble_predictions(ensemble_models, test_loader, device, args.mc_T, args.enable_mc_dropout, verbose=True)
     if S_samples.size == 0: raise RuntimeError("Sampling returned no predictions.")
     S, N, C = S_samples.shape
     
-    ## Rescaling using min-max / affine ##
+    # -------------------------
+    # Affine / Minmax rescale
+    # -------------------------
     
     samples_orig = S_samples * std_train + mean_train
     mean_preds_orig = samples_orig.mean(axis=0)
@@ -498,7 +587,9 @@ def main(args):
         pred_g_cal, a_g, b_g = pred_g_rescaled, 1.0, 0.0
         pred_v_cal, a_v, b_v = pred_v_rescaled, 1.0, 0.0
 
-    ## Rank Confidence ##
+    # -------------------------
+    # Rank confidence
+    # -------------------------
     
     std_per_item_g = np.nanstd(samples_orig[:, :, 0], axis=0)
     score = pred_g_cal - args.uncertainty_lambda * std_per_item_g if args.uncertainty_lambda > 0 else pred_g_cal
@@ -547,6 +638,12 @@ if __name__ == "__main__":
     parser.add_argument('--lambda_corr', type=float, default=1.0, help="Weight for the Pearson correlation loss term.")
     parser.add_argument('--early_stopping_patience', type=int, default=25, help="Patience for early stopping.")
 
+    # loss selection and weights
+    parser.add_argument('--loss', type=str, choices=['ccc','mse','cor','mse_cor'], default='ccc',
+                        help="Loss choice: 'ccc' (default), 'mse', 'cor' (Pearson-based 1-corr), or 'mse_cor' (combined).")
+    parser.add_argument('--mse_w', type=float, default=1.0, help="Weight multiplier for MSE term (used when --loss=mse or --loss=mse_cor).")
+    parser.add_argument('--cor_w', type=float, default=1.0, help="Weight multiplier for Pearson term (used when --loss=cor or --loss=mse_cor).")
+    
     ## model construction
     parser.add_argument('--hidden_dim', type=int, default=512, help="Hidden dimension size.")
     parser.add_argument('--num_layers', type=int, default=5, help="Number of GNN layers.")
