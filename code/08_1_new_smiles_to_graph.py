@@ -66,6 +66,11 @@ def get_global_features_from_mol(mol, num_confs=10):
         converged_confs = [cid for cid, (conv, energy) in zip(cids, res) if conv == 0]
         if not converged_confs: return None
 
+        energies = [item[1] for item in res if item[0] in converged_confs]
+        if not energies: return None
+        min_energy_cid = converged_confs[np.argmin(energies)]
+        conf = mol_3d.GetConformer(min_energy_cid)
+        
         sasa_list, vol_list, gyr_list = [], [], []
         for cid in converged_confs:
             sasa_list.append(rdMolDescriptors.CalcSASA(mol_3d, confId=cid))
@@ -79,7 +84,10 @@ def get_global_features_from_mol(mol, num_confs=10):
             np.mean(vol_list), np.std(vol_list), np.min(vol_list), np.max(vol_list),
             np.mean(gyr_list), np.std(gyr_list), np.min(gyr_list), np.max(gyr_list),
         ]
-    except Exception:
+    except Exception as e:
+        print(f"  [DEBUG] An error occurred in 3D generation part: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
     ## Hindge binding motifs (0/1) ##
@@ -124,6 +132,33 @@ def get_global_features_from_mol(mol, num_confs=10):
     global_attr = torch.tensor(d3_descriptors + hinge_features + [has_covalent_warhead] + interaction_features, dtype=torch.float)
     
     return global_attr
+
+# --------------
+# SMILES PARSE
+# --------------
+
+def parse_smiles_with_detailed_logging(smiles):
+    try:
+        mol = Chem.MolFromSmiles(smiles, sanitize=True)
+        if mol:
+            return mol, "Success: Standard parsing with sanitization."
+    except Exception as e:
+        pass
+    try:
+        mol = Chem.MolFromSmiles(smiles, sanitize=False)
+        if mol:
+            Chem.SanitizeMol(mol)
+            return mol, "Success: Parsed with sanitize=False, then sanitized."
+    except Exception as e:
+        return None, f"Failed at SanitizeMol step. Reason: {e}"
+    try:
+        mol = Chem.MolFromSmiles(smiles, sanitize=False)
+        if mol:
+            Chem.SanitizeMol(mol, sanitizeOps=Chem.SanitizeFlags.SANITIZE_ALL ^ Chem.SanitizeFlags.SANITIZE_PROPERTIES)
+            return mol, "Success: Sanitized while skipping property calculation."
+    except Exception as e:
+        return None, f"Failed at SanitizeMol (skipping properties) step. Reason: {e}"
+    return None, "All parsing attempts failed. The SMILES string might be fundamentally invalid."
 
 # --------------
 # Node and Edge
@@ -286,8 +321,8 @@ def convert_mol_to_graph_gnina_like(mol, use_pos=False):
 # Build Graph
 # --------------
 def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, use_pos=False, args=None):
-    if out_csv_path is None: out_csv_path = os.path.join(SDF_DIR, "processed_graphs.csv")
-    if graphs_dir is None: graphs_dir = os.path.join(SDF_DIR, "graphs")
+    if out_csv_path is None: out_csv_path = os.path.join(SDF_DIR, "processed_graphs_3d.csv")
+    if graphs_dir is None: graphs_dir = os.path.join(SDF_DIR, "graphs_3d")
     os.makedirs(graphs_dir, exist_ok=True)
 
     file_pattern = os.path.join(SDF_DIR, "batch*_score.txt")
@@ -347,6 +382,8 @@ def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, u
                     gnina_col = c; break
         print(f"  Detected columns for file {batch_name}: smiles='{smiles_col}', vina='{vina_col}', gnina/cnn='{gnina_col}'")
 
+        ## SMILES Parsing for 3D 
+        
         for idx, row in df.iterrows():
             total += 1
             smiles = str(row[smiles_col]).strip()
@@ -354,30 +391,11 @@ def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, u
             ba_val_raw = row.get(vina_col, None) if vina_col is not None else None
             cnn_val_raw = row.get(gnina_col, None) if gnina_col is not None else None
 
-            mol = None
-            try:
-                mol = Chem.MolFromSmiles(smiles)
-                if mol is None:
-                    mol = Chem.MolFromSmiles(smiles, sanitize=False)
-                    if mol is not None:
-                        try:
-                            Chem.SanitizeMol(mol)
-                        except Exception:
-                            mol = None
-            except Exception:
-                mol = None
-
-            if mol is None:
-                try:
-                    tmp = Chem.MolFromSmiles(smiles, sanitize=False)
-                    if tmp is not None:
-                        Chem.SanitizeMol(tmp, sanitizeOps=Chem.SanitizeFlags.SANITIZE_ALL ^ Chem.SanitizeFlags.SANITIZE_PROPERTIES)
-                        mol = tmp
-                except Exception:
-                    mol = None
-
+            mol, log_message = parse_smiles_with_detailed_logging(smiles)
+            
             if mol is None:
                 print(f"  [skip] cannot parse SMILES for ligand_id={ligand_id} smiles='{smiles[:50]}'")
+                print(f"  [DEBUG] Reason: {log_message}")
                 continue
 
             ## 3D structure ##
