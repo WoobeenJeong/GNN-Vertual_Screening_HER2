@@ -40,6 +40,8 @@ import argparse
 from pathlib import Path
 import random
 import math
+from collections import defaultdict
+import random as _random
 
 import numpy as np
 import pandas as pd
@@ -59,6 +61,14 @@ try:
 except Exception:
     USE_PYG = False
     print("[warn] torch_geometric not found. Using a simple MLP-based model as a fallback.")
+
+try:
+    from rdkit import Chem
+    from rdkit.Chem.Scaffolds import MurckoScaffold
+    RDKit_AVAILABLE = True
+except Exception:
+    RDKit_AVAILABLE = False
+    print("[warn] RDKit not available: scaffold split will fallback to random split.")
 
 # -------------------------
 # Meta-data and Graph Load
@@ -283,7 +293,71 @@ def build_ensemble_from_specs(specs, in_dim, device, hidden_dim, num_layers, dro
         m.to(device)
         models.append(m)
     return models
-         
+
+def get_scaffold_smiles(smiles, include_chirality=False):
+    if not RDKit_AVAILABLE:
+        return None
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        return None
+    scaffold_mol = MurckoScaffold.GetScaffoldForMol(mol)
+    if scaffold_mol is None or scaffold_mol.GetNumAtoms() == 0:
+        return Chem.MolToSmiles(mol, isomericSmiles=include_chirality)
+    return Chem.MolToSmiles(scaffold_mol, isomericSmiles=include_chirality)
+
+def scaffold_split_from_data_list(data_list, frac_train=0.8, frac_valid=0.1, seed=42, smiles_key='smiles'):
+    n = len(data_list)
+    if n == 0:
+        return [], [], []
+
+    scaffolds = []
+    for d in data_list:
+        s = d.get(smiles_key, None)
+        if s is None:
+            scaffolds.append(None)
+        else:
+            sc = get_scaffold_smiles(str(s))
+            scaffolds.append(sc)
+
+    if not RDKit_AVAILABLE or all(sc is None for sc in scaffolds):
+        _random.seed(seed)
+        idxs = np.arange(n)
+        _random.shuffle(idxs)
+        ntrain = int(frac_train * n)
+        nval = int(frac_valid * n)
+        return idxs[:ntrain].tolist(), idxs[ntrain:ntrain+nval].tolist(), idxs[ntrain+nval:].tolist()
+
+    scaffold_to_idx = defaultdict(list)
+    for idx, sc in enumerate(scaffolds):
+        scaffold_to_idx[sc].append(idx)
+
+    groups = sorted(list(scaffold_to_idx.items()), key=lambda x: len(x[1]), reverse=True)
+    n_train_target = int(frac_train * n)
+    n_val_target = int(frac_valid * n)
+
+    train_idx, val_idx, test_idx = [], [], []
+    for sc, idxs in groups:
+        # assign group wholly to the bucket that still has capacity (prioritize train -> val -> test)
+        if len(train_idx) + len(idxs) <= n_train_target:
+            train_idx.extend(idxs)
+        elif len(val_idx) + len(idxs) <= n_val_target:
+            val_idx.extend(idxs)
+        else:
+            test_idx.extend(idxs)
+
+    remaining = set(range(n)) - set(train_idx) - set(val_idx) - set(test_idx)
+    for r in remaining:
+        test_idx.append(r)
+
+    _random.seed(seed)
+    _random.shuffle(train_idx)
+    _random.seed(seed + 1)
+    _random.shuffle(val_idx)
+    _random.seed(seed + 2)
+    _random.shuffle(test_idx)
+
+    return train_idx, val_idx, test_idx
+
 # -------------------------
 # Monte-Carlo Sampling
 # -------------------------
@@ -352,13 +426,22 @@ def main(args):
     data_list = load_graphs_from_meta(args.meta_csv, graphs_root=args.graphs_root, replace_nan_with=args.replace_nan)
     if not data_list: raise RuntimeError("No data loaded.")
     print(f"[info] {len(data_list)} graphs loaded.")
+
     random.seed(args.seed); np.random.seed(args.seed); torch.manual_seed(args.seed)
-    idxs = np.arange(len(data_list)); np.random.shuffle(idxs)
-    n = len(idxs)
-    ntrain = int(n * args.train_frac); nval = int(n * args.val_frac)
-    train_idx, val_idx, test_idx = idxs[:ntrain], idxs[ntrain:ntrain+nval], idxs[ntrain+nval:]
-    train_list, val_list, test_list = [data_list[i] for i in train_idx], [data_list[i] for i in val_idx], [data_list[i] for i in test_idx]
-    print(f"[info] Split: train={len(train_list)}, val={len(val_list)}, test={len(test_list)}")
+    if args.split_method == 'scaffold':
+        print("[info] Using scaffold-based split (Bemis-Murcko).")
+        train_idx, val_idx, test_idx = scaffold_split_from_data_list(
+            data_list, frac_train=args.train_frac, frac_valid=args.val_frac, seed=args.scaffold_seed)
+    else:
+        idxs = np.arange(len(data_list)); np.random.shuffle(idxs)
+        n = len(idxs)
+        ntrain = int(n * args.train_frac); nval = int(n * args.val_frac)
+        train_idx, val_idx, test_idx = idxs[:ntrain].tolist(), idxs[ntrain:ntrain+nval].tolist(), idxs[ntrain+nval:].tolist()
+
+    train_list = [data_list[i] for i in train_idx]
+    val_list = [data_list[i] for i in val_idx]
+    test_list = [data_list[i] for i in test_idx]
+    print(f"[info] Split method: {args.split_method}. train={len(train_list)}, val={len(val_list)}, test={len(test_list)}")
 
     train_loader = DataLoader(GraphDictDataset(train_list), batch_size=args.batch_size, shuffle=True, collate_fn=collate_graphs)
     val_loader = DataLoader(GraphDictDataset(val_list), batch_size=args.batch_size, shuffle=False, collate_fn=collate_graphs)
@@ -423,7 +506,6 @@ def main(args):
         y_v = y[:, 1]
 
         if args.loss == 'ccc':
-            # Concordance Correlation Coefficient loss (as before)
             if mask_g.sum() > 1:
                 loss_gnina = masked_ccc(pred_g, y_g, mask_g)
             if mask_v.sum() > 1:
@@ -431,7 +513,6 @@ def main(args):
             total_loss = loss_gnina + loss_vina
 
         elif args.loss == 'mse':
-            # Mean squared error (use mse_w as multiplier)
             w = float(args.mse_w)
             if mask_g.sum() > 0:
                 loss_gnina = masked_mse(pred_g, y_g, mask_g)
@@ -440,7 +521,6 @@ def main(args):
             total_loss = w * (loss_gnina + loss_vina)
 
         elif args.loss == 'cor':
-            # Pearson-based loss (1 - corr) (use cor_w as multiplier)
             w = float(args.cor_w)
             if mask_g.sum() > 1:
                 loss_gnina = pearson_loss_torch(pred_g[mask_g], y_g[mask_g])
@@ -449,7 +529,6 @@ def main(args):
             total_loss = w * (loss_gnina + loss_vina)
 
         elif args.loss == 'mse_cor':
-            # Combined objective: mse_w * MSE + cor_w * PearsonLoss
             mse_w = float(args.mse_w)
             cor_w = float(args.cor_w)
             mse_term = torch.tensor(0.0, device=preds.device)
@@ -465,7 +544,6 @@ def main(args):
             total_loss = mse_w * mse_term + cor_w * cor_term
 
         else:
-            # fallback to CCC if invalid option (shouldn't happen due to argparse choices)
             if mask_g.sum() > 1:
                 loss_gnina = masked_ccc(pred_g, y_g, mask_g)
             if mask_v.sum() > 1:
@@ -538,7 +616,7 @@ def main(args):
             model.load_state_dict(torch.load(best_model_path))
 
     log_df = pd.DataFrame(all_epoch_logs)
-    log_csv_path = out_dir / "epoch_training_log.csv"
+    log_csv_path = out_dir / "cor_epoch_training_log.csv"
     log_df.to_csv(log_csv_path, index=False)
     print(f"\n[info] Saved epoch-by-epoch training and validation logs to: {log_csv_path}")
 
@@ -618,7 +696,7 @@ def main(args):
         'calib_a_g': a_g, 'calib_b_g': b_g
     })
     df_sorted = df_out.sort_values('final_score', ascending=False).reset_index(drop=True)
-    out_csv = out_dir / "df_sorted_final.csv"
+    out_csv = out_dir / "cor_df_sorted_final.csv"
     df_sorted.to_csv(out_csv, index=False)
     print(f"\n[done] Saved final sorted results to: {out_csv}")
 
@@ -654,14 +732,19 @@ if __name__ == "__main__":
     parser.add_argument('--train_frac', type=float, default=0.8)
     parser.add_argument('--val_frac', type=float, default=0.1)
     parser.add_argument('--replace_nan', type=float, default=None)
-    
+
+    # split options
+    parser.add_argument('--split_method', type=str, choices=['random','scaffold'], default='random',
+                        help="How to split dataset: 'random' (default) or 'scaffold' (Bemis-Murcko).")
+    parser.add_argument('--scaffold_seed', type=int, default=42, help="Seed used for scaffold greedy assignment/shuffling.")
+
     ## ensemble and sampling
     parser.add_argument('--ensemble_specs', type=str,
                         default='[{"name":"gine","conv_type":"gine","seed":42},{"name":"gatv2","conv_type":"gatv2","seed":43},{"name":"transformer","conv_type":"transformer","seed":44},{"name":"gcn","conv_type":"gcn","seed":45}]',
                         help="JSON string defining the ensemble members.")
     parser.add_argument('--mc_T', type=int, default=5)
     parser.add_argument('--enable_mc_dropout', action='store_true')
-    
+
     ## callibrations
     parser.add_argument('--rescale', type=str, choices=['none','minmax'], default='minmax')
     parser.add_argument('--calibrate_affine', action='store_true', default=True)
