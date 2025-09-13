@@ -26,7 +26,9 @@ Created Features:
     9. atomic properties (Gaussian Embeded) = 30
     10. atom mass (Gaussian Embeded)        = 21
 
-    11. 
+    11. HER2 TKI specific hindge motif      = 4
+    12. Cys805 Covalent Warhead             = 1
+    13. Met801, Cys805, Asp863, Ser783      = 4
     
 """
 
@@ -256,7 +258,7 @@ def convert_mol_to_graph_gnina_like(mol, use_pos=False):
 
 def build_graphs_from_batch_files(SDF_DIR, out_csv_path=None, graphs_dir=None, use_pos=False):
     if out_csv_path is None: out_csv_path = os.path.join(SDF_DIR, "re_processed_graphs.csv")
-    if graphs_dir is None: graphs_dir = os.path.join(SDF_DIR, "graphs")
+    if graphs_dir is None: graphs_dir = os.path.join(SDF_DIR, "re_graphs")
     os.makedirs(graphs_dir, exist_ok=True)
 
     file_pattern = os.path.join(SDF_DIR, "batch*_score.txt")
@@ -462,7 +464,7 @@ def load_graphs_for_gnn(meta_csv, graphs_root=None, to_pyg=True, replace_nan_wit
 
 def main():
     parser = argparse.ArgumentParser(description="Build graphs from batch*_score.txt and write metadata CSV")
-    parser.add_argument('--sdf_dir', type=str, default='/home/ssm-user/project/re_scores', help='Directory with batch*_score.txt files')
+    parser.add_argument('--sdf_dir', type=str, default='/home/ssm-user/project/scores', help='Directory with batch*_score.txt files')
     parser.add_argument('--out_csv', type=str, default=None, help='where to write processed_graphs.csv')
     parser.add_argument('--graphs_dir', type=str, default=None, help='directory to save .pt graph files')
     parser.add_argument('--use_pos', action='store_true', help='attempt to generate 3D coords (slow)')
