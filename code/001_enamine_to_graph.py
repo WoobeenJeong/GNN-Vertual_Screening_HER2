@@ -204,11 +204,11 @@ def build_graphs_from_sdf_files(input_dir, out_csv_path, graphs_dir, use_pos=Fal
     if graphs_dir is None: graphs_dir = os.path.join(SDF_DIR, "enamine_graphs")
     os.makedirs(graphs_dir, exist_ok=True)
 
-    file_pattern = os.path.join(input_dir, "Enamine_hts_collection_*.sdf")
+    file_pattern = os.path.join(input_dir, "Enamine_*.sdf")
     files = sorted(glob.glob(file_pattern))
     if not files:
         # Also check for lowercase sdf
-        file_pattern = os.path.join(input_dir, "enamine_hts_collection_*.sdf")
+        file_pattern = os.path.join(input_dir, "enamine_*.sdf")
         files = sorted(glob.glob(file_pattern))
 
     if not files:
