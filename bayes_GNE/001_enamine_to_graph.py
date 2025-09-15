@@ -368,7 +368,7 @@ def main():
     parser = argparse.ArgumentParser(description="Build graphs from Enamine SDF files and write metadata CSV")
     parser.add_argument('--input_dir', type=str, default='/home/ssm-user/project/scores', help='Directory with Enamine_hts_collection_*.sdf files')
     parser.add_argument('--out_csv', type=str, default='/home/ssm-user/project/scores/enamine_processed_graphs.csv', help='Path to write the output metadata CSV file.')
-    parser.add_argument('--graphs_dir', type=str, default='/home/ssm-user/project/scores/enamin_graphs', help='Directory to save .pt graph files')
+    parser.add_argument('--graphs_dir', type=str, default='/home/ssm-user/project/scores/enamine_graphs', help='Directory to save .pt graph files')
     parser.add_argument('--use_pos', action='store_true', help='Attempt to generate 3D coords (slow)')
     args = parser.parse_args()
 
