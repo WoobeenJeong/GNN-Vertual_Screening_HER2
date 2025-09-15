@@ -200,8 +200,8 @@ def convert_mol_to_graph_gnina_like(mol, use_pos=False):
 
 def build_graphs_from_sdf_files(input_dir, out_csv_path, graphs_dir, use_pos=False):
 
-    if out_csv_path is None: out_csv_path = os.path.join(SDF_DIR, "enamine_processed_graphs.csv")
-    if graphs_dir is None: graphs_dir = os.path.join(SDF_DIR, "enamine_graphs")
+    if out_csv_path is None: out_csv_path = os.path.join(input_dir, "enamine_processed_graphs.csv")
+    if graphs_dir is None: graphs_dir = os.path.join(input_dir, "enamine_graphs")
     os.makedirs(graphs_dir, exist_ok=True)
 
     file_pattern = os.path.join(input_dir, "Enamine_*.sdf")
@@ -217,65 +217,58 @@ def build_graphs_from_sdf_files(input_dir, out_csv_path, graphs_dir, use_pos=Fal
     print(f"Found {len(files)} SDF files to process.")
 
     rows_out = []
-    total = 0; kept = 0
+    total_attempts = 0
+    parse_failures = 0
+    graph_failures = 0
+    kept = 0
+    
     for fpath in files:
         batch_name = os.path.basename(fpath)
         print(f"Processing {batch_name} ...")
-        # Use a supplier that is more robust to errors
-        supplier = Chem.SDMolSupplier(fpath, removeHs=False, sanitize=False) # sanitize를 False로 변경
+        supplier = Chem.SDMolSupplier(fpath, removeHs=False, sanitize=False) 
         
         for idx, mol in enumerate(supplier):
-            total += 1
-        
+            total_attempts += 1
+
             if mol is None:
-                print(f"  [skip] RDKit could not read molecule at index {idx} in {batch_name} (likely file format issue)")
+                parse_failures += 1
                 continue
-            
+
             try:
                 Chem.SanitizeMol(mol)
-            except Exception as e:
-                print(f"  [skip] Sanitization failed for molecule at index {idx} in {batch_name}. Error: {e}")
+            except Exception:
+                graph_failures += 1
                 continue
-                
+
             try:
-                # RDKit reads SDF properties like > <Catalog_ID> into mol.GetProp('Catalog_ID')
                 ligand_id = mol.GetProp('Catalog_ID')
             except (KeyError, AttributeError):
-                # Fallback if property is not found or has a different name
                 try:
                     ligand_id = mol.GetProp('_Name')
                 except (KeyError, AttributeError):
                     ligand_id = f"{os.path.splitext(batch_name)[0]}_{idx}"
-                print(f"  [warn] 'Catalog_ID' not found for molecule {idx}. Using fallback ID: {ligand_id}")
 
             try:
                 smiles = Chem.MolToSmiles(mol)
-            except Exception as e:
-                print(f"  [skip] Cannot generate SMILES for ligand_id={ligand_id}: {e}")
+            except Exception:
+                graph_failures += 1
                 continue
 
-            # Convert to graph
             try:
                 res = convert_mol_to_graph_gnina_like(mol, use_pos=use_pos)
                 if res is None:
-                    print(f"  [skip] Graph conversion returned None for ligand_id={ligand_id}")
+                    graph_failures += 1
                     continue
                 edge_index, node_attr, edge_attr, pos, edge_weight = res
-            except Exception as e:
-                print(f"  [skip] Graph conversion error for ligand_id={ligand_id} idx={idx} : {e}")
+            except Exception:
+                graph_failures += 1
                 continue
 
-            # Save graph object
             safe_name = str(ligand_id).replace(os.sep, "_").replace(" ", "_")
             graph_path = os.path.join(graphs_dir, safe_name + ".pt")
             graph_obj = {
-                "edge_index": edge_index.cpu() if isinstance(edge_index, torch.Tensor) else edge_index,
-                "node_attr": node_attr.cpu() if isinstance(node_attr, torch.Tensor) else node_attr,
-                "edge_attr": edge_attr.cpu() if isinstance(edge_attr, torch.Tensor) else edge_attr,
-                "pos": pos.cpu() if isinstance(pos, torch.Tensor) else pos,
-                "edge_weight": edge_weight.cpu() if isinstance(edge_weight, torch.Tensor) else edge_weight,
-                "smiles": smiles,
-                "ligand_id": ligand_id
+                "edge_index": edge_index, "node_attr": node_attr, "edge_attr": edge_attr,
+                "pos": pos, "edge_weight": edge_weight, "smiles": smiles, "ligand_id": ligand_id
             }
             try:
                 torch.save(graph_obj, graph_path)
@@ -283,22 +276,25 @@ def build_graphs_from_sdf_files(input_dir, out_csv_path, graphs_dir, use_pos=Fal
                 print(f"  [warn] Failed to save graph file {graph_path}: {e}")
                 continue
 
-            # The SDF doesn't contain affinity values, so they are set to None (which will become NaN in pandas)
             rows_out.append({
-                "batch_file": batch_name,
-                "batch_index": idx,
-                "ligand_id": ligand_id,
-                "smiles": smiles,
-                "graph_path": graph_path,
-                "vina_affinity": None,
+                "batch_file": batch_name, "batch_index": idx, "ligand_id": ligand_id,
+                "smiles": smiles, "graph_path": graph_path, "vina_affinity": None,
                 "gnina_affinity": None
             })
+            
             kept += 1
 
-            if kept % 1000 == 0:
-                print(f"  ... processed {kept} molecules so far.")
+            if kept % 1000 == 0 and kept > 0:
+                print(f"  ... processed and kept {kept} molecules so far.")
 
-    print(f"\nProcessed total molecules: {total}, kept graphs: {kept}")
+    print("\n---------------------[ Processing Summary ]---------------------")
+    print(f"Total molecules attempted to read: {total_attempts}")
+    print(f"RDKit parsing failures (mol is None): {parse_failures}")
+    print(f"Graph conversion/sanitization failures: {graph_failures}")
+    print(f"Final graphs kept: {kept}")
+    print(f"Success rate: {100 * kept / total_attempts if total_attempts > 0 else 0:.2f}%")
+    print("----------------------------------------------------------------")
+    
     if kept > 0:
         out_df = pd.DataFrame(rows_out)
         out_df.to_csv(out_csv_path, index=False)
