@@ -222,16 +222,21 @@ def build_graphs_from_sdf_files(input_dir, out_csv_path, graphs_dir, use_pos=Fal
         batch_name = os.path.basename(fpath)
         print(f"Processing {batch_name} ...")
         # Use a supplier that is more robust to errors
-        supplier = Chem.SDMolSupplier(fpath, removeHs=False, sanitize=True)
+        supplier = Chem.SDMolSupplier(fpath, removeHs=False, sanitize=False) # sanitize를 False로 변경
         
         for idx, mol in enumerate(supplier):
             total += 1
-
+        
             if mol is None:
-                print(f"  [skip] RDKit could not parse molecule at index {idx} in {batch_name}")
+                print(f"  [skip] RDKit could not read molecule at index {idx} in {batch_name} (likely file format issue)")
                 continue
-
-
+            
+            try:
+                Chem.SanitizeMol(mol)
+            except Exception as e:
+                print(f"  [skip] Sanitization failed for molecule at index {idx} in {batch_name}. Error: {e}")
+                continue
+                
             try:
                 # RDKit reads SDF properties like > <Catalog_ID> into mol.GetProp('Catalog_ID')
                 ligand_id = mol.GetProp('Catalog_ID')
