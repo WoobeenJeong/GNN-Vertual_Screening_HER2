@@ -4,9 +4,10 @@ Command Example:
     python 10_predict_with_ensemble.py
 
 If you find:
-  [warn] torch_geometric not found. Using a simple MLP-based model as a fallback.
+    [warn] torch_geometric not found. Using a simple MLP-based model as a fallback.
 Then :
-  Conda install -c conda-forge torch_geometric -y
+    conda install pyg -c pyg    # More efficient
+    # conda install -c conda-forge torch_geometric -y
 
 """
 
