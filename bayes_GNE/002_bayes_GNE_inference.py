@@ -348,10 +348,10 @@ if __name__ == "__main__":
                         default='/home/ssm-user/project/scores/enamine_processed_graphs.csv',
                         help="Path to the metadata CSV for all ligands to be predicted.")
     parser.add_argument('--graphs_root', type=str, 
-                        default='/home/ssm-user/project/scores/enamin_graphs',
+                        default='/home/ssm-user/project/scores/enamine_graphs',
                         help="Directory containing the graph .pt files.")
     parser.add_argument('--models_dir', type=str, 
-                        default='/home/ssm-user/project/scores/trained_models',
+                        default='/home/ssm-user/project/scores/results',
                         help="Directory containing the 4 pre-trained model .pt files.")
     parser.add_argument('--out_file', type=str, 
                         default='/home/ssm-user/project/scores/results/all_ligands_predictions.csv',
