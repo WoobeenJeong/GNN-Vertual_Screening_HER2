@@ -151,6 +151,11 @@ Successfully predicted ligands: 1388351
 Total inference time: 2821.96 seconds
 Rank confidence calculation time: 6.1217 seconds
 ---------------------------------------------------
+
+<bash>
+
+(head -n 1 enamine_ligands_predictions.csv && tail -n +2  enamine_ligands_predictions.csv | sort -t, -k5,5nr -k8,8nr) | head -n 10001 > top10000_enamine_ligands_predictions.csv
+
 ```
 
 # Analyze Druggability properties
