@@ -143,12 +143,12 @@ Modern version of docking tool.
   > Sampling from model 3/4 (TRANSFORMER) (MC-T=5)
   > Sampling from model 4/4 (GCN) (MC-T=5)
 > 
-[info] Prediction complete. Generated 20 samples for 1388351 ligands.
+[info] Prediction complete. Generated 20 samples for 1 388 351 ligands.
 [info] Calculating final scores and confidence metrics...
 
 -----------------[ Summary ]---------------------
-Successfully predicted ligands: 1388351
-Total inference time: 2821.96 seconds
+Successfully predicted ligands: 1 388 351
+Total inference time: 2821.96 seconds(0.002 per mol)
 Rank confidence calculation time: 6.1217 seconds
 ---------------------------------------------------
 
