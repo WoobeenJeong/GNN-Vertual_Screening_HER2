@@ -121,7 +121,39 @@ Modern version of docking tool.
 
 - " " shows the best performance and interpretation on druggability
 
-# Analyze interaction properties using ChimeraX
+'''
+(docking) $ python 002_bayes_GNE_inference.py
+
+[info] torch_geometric's GNN layers are available.
+[info] Using device: cuda
+[info] Output will be saved to: /home/ssm-user/project/scores/results/enamine_ligands_predictions.csv
+
+[info] Loaded 1388351 graphs for prediction.
+[info] Inferred input feature dim: 111, Edge feature dim: 12
+[info] Loading pre-trained ensemble models...
+  > Loading 'gine' from /home/ssm-user/project/scores/results/ensemble_member_0_gine_best.pt
+  > Loading 'gatv2' from /home/ssm-user/project/scores/results/ensemble_member_1_gatv2_best.pt
+  > Loading 'transformer' from /home/ssm-user/project/scores/results/ensemble_member_2_transformer_best.pt
+  > Loading 'gcn' from /home/ssm-user/project/scores/results/ensemble_member_3_gcn_best.pt
+[info] Successfully loaded 4 models.
+
+[info] Starting prediction with ensemble...
+  > Sampling from model 1/4 (GINE) (MC-T=5)
+  > Sampling from model 2/4 (GATV2) (MC-T=5)
+  > Sampling from model 3/4 (TRANSFORMER) (MC-T=5)
+  > Sampling from model 4/4 (GCN) (MC-T=5)
+> 
+[info] Prediction complete. Generated 20 samples for 1388351 ligands.
+[info] Calculating final scores and confidence metrics...
+
+-----------------[ Summary ]---------------------
+Successfully predicted ligands: 1388351
+Total inference time: 2821.96 seconds
+Rank confidence calculation time: 6.1217 seconds
+---------------------------------------------------
+'''
+
+# Analyze Druggability properties
 
 
 # Collaborators
