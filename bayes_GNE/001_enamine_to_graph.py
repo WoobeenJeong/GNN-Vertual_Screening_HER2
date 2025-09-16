@@ -161,6 +161,58 @@ def convert_mol_to_graph_gnina_like(mol, use_pos=False):
         attr += [arom, ring_flag, atm.GetFormalCharge(), atm.GetNumRadicalElectrons()]
         attr += [is_hbd, is_hba, is_halogen, is_metal, neighbor_polar]
 
+        # ----------------------------
+        # hinge / warhead / interaction atom-index sets (compute ONCE, outside node loop)
+        # ----------------------------
+        hinge_smarts = [
+            'c12ccccc1nc(N)cn2',   # quinazoline
+            'c1c(N)ccnc1N',        # pyrimidine
+            'c12c(nc(N)nc1)ncn2',  # purine
+            'c1c2c(nc(N)n1)cncn2'  # pyrrolopyrimidine
+        ]
+        hinge_mols = [Chem.MolFromSmarts(s) for s in hinge_smarts]
+        hinge_atom_sets = [set() for _ in hinge_mols]
+        for i, patt in enumerate(hinge_mols):
+            if patt is None:
+                continue
+            for match in mol2.GetSubstructMatches(patt):
+                hinge_atom_sets[i].update(match)
+    
+        warhead_smarts = 'C=CC(=O)N'
+        warhead_mol = Chem.MolFromSmarts(warhead_smarts)
+        warhead_atom_set = set()
+        if warhead_mol is not None:
+            for match in mol2.GetSubstructMatches(warhead_mol):
+                warhead_atom_set.update(match)
+    
+        met_mol = Chem.MolFromSmarts('CSC')
+        met_atom_set = set()
+        if met_mol is not None:
+            for match in mol2.GetSubstructMatches(met_mol):
+                met_atom_set.update(match)
+    
+        cys_atom_set = set([a.GetIdx() for a in mol2.GetAtoms() if a.GetSymbol() == 'S'])
+    
+        asp_mol = Chem.MolFromSmarts('C(=O)O')
+        asp_atom_set = set()
+        if asp_mol is not None:
+            for match in mol2.GetSubstructMatches(asp_mol):
+                asp_atom_set.update(match)
+    
+        ser_mol = Chem.MolFromSmarts('[OX2H]')  # OH oxygen
+        ser_atom_set = set()
+        if ser_mol is not None:
+            for match in mol2.GetSubstructMatches(ser_mol):
+                ser_atom_set.update(match)
+
+        for i in range(4):
+            attr.append(1.0 if atm_id in hinge_atom_sets[i] else 0.0)
+        attr.append(1.0 if atm_id in warhead_atom_set else 0.0)
+        attr.append(1.0 if atm_id in met_atom_set else 0.0)
+        attr.append(1.0 if atm_id in cys_atom_set else 0.0)
+        attr.append(1.0 if atm_id in asp_atom_set else 0.0)
+        attr.append(1.0 if atm_id in ser_atom_set else 0.0)
+        
         ## Add Gausian Embedded Charge Info ##
         
         gcharge_emb = gaussian_embedding(g_charge, centers=np.linspace(-1,1,11), sigma=0.2)
