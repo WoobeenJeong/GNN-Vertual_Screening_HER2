@@ -121,7 +121,7 @@ Modern version of docking tool.
 
 - " " shows the best performance and interpretation on druggability
 
-'''
+```
 (docking) $ python 002_bayes_GNE_inference.py
 
 [info] torch_geometric's GNN layers are available.
@@ -151,7 +151,7 @@ Successfully predicted ligands: 1388351
 Total inference time: 2821.96 seconds
 Rank confidence calculation time: 6.1217 seconds
 ---------------------------------------------------
-'''
+```
 
 # Analyze Druggability properties
 
