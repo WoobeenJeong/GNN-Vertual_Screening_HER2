@@ -6,7 +6,6 @@ Command Example:
 Description:
     이 스크립트는 입력 CSV 파일('smiles', 'SA', 'QED' 열 포함)을 읽어,
     SA < 3, QED > 0.7 기준을 만족하는 화합물에 대해 PAINS 필터를 적용합니다.
-    결과로 'PAINS'와 'PAINS_why' 열을 추가하여 새로운 CSV 파일로 저장합니다.
 """
 
     from rdkit import Chem
@@ -64,7 +63,6 @@ Description:
     # 결과 열 초기화
     # PAINS: 999 (기준 미달), 0 (PAINS 해당), 1 (PAINS 미해당)
     df['PAINS'] = 999
-    df['PAINS_why'] = 'Did not meet SA/QED criteria'
 
     # SA 및 QED 기준을 만족하는 행에 대한 마스크 생성
     mask = (df['SA'] < args.sa_threshold) & (df['QED'] > args.qed_threshold)
@@ -80,7 +78,7 @@ Description:
             pains_results = smiles_to_check.apply(get_pains_info)
         
         # 결과를 데이터프레임의 해당 위치에 다시 할당
-        df.loc[mask, ['PAINS', 'PAINS_why']] = pd.DataFrame(pains_results.tolist(), index=df.loc[mask].index)
+        df.loc[mask, ['PAINS']] = pd.DataFrame(pains_results.tolist(), index=df.loc[mask].index)
 
     # 최종 결과 요약
     skipped_prefilter = (df['PAINS'] == 999).sum()
