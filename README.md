@@ -17,27 +17,39 @@ https://enamine.net/compound-libraries/diversity-libraries
 
 Final Scored Ligand set ( 97,956 compounds )
 
-### [ Evaluation set (4,643,787 compounds) ]
+1. MedChem Filtered Dataset
+
+2. Immediate SAR from Clustered Set
+
+
+### [ Screening set (4,643,787 compounds) ]
 
 https://enamine.net/compound-collections/screening-collection
 
 Final Result Ligand set ( 3,188,651 compounds )
 
+1. The world’s largest screening collection
+
+2. Available as pre-plated sets
+
+
 ---
 
 # Abstract
 
+<img width="2283" height="578" alt="image" src="https://github.com/user-attachments/assets/1ea9d044-cae4-4786-9753-300668229702" />
+
+
 Building on the success of HER2-targeted therapies like tucatinib, the strategy is now being applied to other HER2-altered tumors.
-HER2-mutant metastatic non-small cell lung cancer (mNCLC), notably in Asian female non-smokers, demonstrates only modest benefit from current targeted therapies (≈30–50% ORR; median targeted therapy duration ~8 months) and lacks an FDA-approved standard, while resistance driven by wild-type HER2 relapse and exon-20 insertion variants remains inadequately addressed.<br>
-<br>
-<img width="2000" height="745" alt="image" src="https://github.com/user-attachments/assets/8430658c-3306-421e-98d6-28e04659f535" /><br>
-<br>
+
 We performed large-scale computer-based virtual screening targeting the HER2 8VB5 binding region to identify and prioritize candidate compounds/proteins with predicted high affinity, improved potential activity against exon-20 insertion mutants.<br>
 <br>
 Top hits were triaged using deep-learning frameworks and are recommended for biochemical and cellular validation as promising leads to overcome current resistance mechanisms and improve clinical outcomes.<br>
 <br>
 <img width="1661" height="844" alt="image" src="https://github.com/user-attachments/assets/193bdc5d-c1d6-43ab-80ce-a1a4ccd0f6cc" /><br>
 <br>
+
+
 
 # Baselines
 
@@ -94,6 +106,13 @@ Modern version of docking tool.
 
 # Graph Neural Network based TOP-n compound picking
 
+
+<img width="1731" height="661" alt="image" src="https://github.com/user-attachments/assets/45062d21-5c23-4ad4-9c9b-dfa33d7c8477" />
+
+
+<img width="2033" height="430" alt="image" src="https://github.com/user-attachments/assets/048be83e-06ba-4692-a005-d2e8931cedd6" />
+
+
 <details>
   <summary>Ensembled GNN </summary>   
 
@@ -140,11 +159,21 @@ Rank confidence calculation time: 19.3441 seconds
 
 <bash>
 
-(head -n 1 enamine_ligands_predictions.csv && tail -n +2  enamine_ligands_predictions.csv | sort -t, -k5,5nr -k8,8nr) | head -n 10001 > top10000_enamine_ligands_predictions_out.csv
+(head -n 1 enamine_ligands_predictions.csv && tail -n +2  enamine_ligands_predictions.csv \
+   | sort -t, -k5,5nr -k8,8nr) | head -n 10001 > top10000_enamine_ligands_predictions_out.csv
 
 ```
 
+<img width="2101" height="672" alt="image" src="https://github.com/user-attachments/assets/382aca7c-b918-4e3a-af67-bc112b6e925e" />
+
+
 # Analyze Druggability properties
+
+
+<img width="2244" height="669" alt="image" src="https://github.com/user-attachments/assets/cc0ad039-c64a-446d-b996-b7eee6306e0d" />
+
+
+<img width="2201" height="883" alt="image" src="https://github.com/user-attachments/assets/5f24df75-5931-457e-a87e-25fe2335c135" />
 
 
 # Collaborators
