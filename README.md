@@ -21,6 +21,8 @@ Final Scored Ligand set ( 97,956 compounds )
 
 https://enamine.net/compound-collections/screening-collection
 
+Final Result Ligand set ( 3,188,651 compounds )
+
 ---
 
 # Abstract
