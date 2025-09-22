@@ -50,7 +50,7 @@ conda env export --from-history --name docking > environment.yml
 ```
 --from-history ensures only explicitly installed packages are listed.<br>
 <br>
-Project directory structure on AWS EC2 (To preprocessing data):
+Project directory structure on AWS EC2 (To preprocess & build Bayes_GNE model)
 ```
 /home/ssm-user/project
 ├─ 01_check_batch.ipynb
@@ -90,24 +90,10 @@ Modern version of docking tool.
 - Extends docking by integrating a convolutional neural network (CNN) to score ligand poses.
 - Improves pose ranking and virtual screening performance, especially for challenging targets, by capturing patterns AutoDock GPU alone may miss.
 
-# ML & DL based TOP-n compound picking
+# Graph Neural Network based TOP-n compound picking
 
 <details>
-  <summary>XGBoost    (Dohoon Kim)</summary>
-
-   XGB : Uses gradient-boosted decision trees (GBDT) to iteratively correct errors from previous trees, optimizing predictive performance.
-
-</details>
-
-<details>
-  <summary>LightGBM   (Dohoon Kim)</summary>
-
-   LGBM : GBDT-based algorithm, optimized for speed and memory efficiency using leaf-wise tree growth instead of level-wise.
-   
-</details>
-
-<details>
-  <summary>Ensembled GNN   (Hyojin Kim, Woobeen Jeong)</summary>   
+  <summary>Ensembled GNN </summary>   
 
    GCN : Basic convolutional networks for graph structured input.
    
@@ -119,8 +105,6 @@ Modern version of docking tool.
 
 </details>
 
-- " " shows the best performance and interpretation on druggability
-
 ```
 (docking) $ python 002_bayes_GNE_inference.py
 
@@ -128,8 +112,8 @@ Modern version of docking tool.
 [info] Using device: cuda
 [info] Output will be saved to: /home/ssm-user/project/scores/results/enamine_ligands_predictions.csv
 
-[info] Loaded 1388351 graphs for prediction.
-[info] Inferred input feature dim: 111, Edge feature dim: 12
+[info] Loaded 3188651 graphs for prediction.
+[info] Inferred input feature dim: 120, Edge feature dim: 12
 [info] Loading pre-trained ensemble models...
   > Loading 'gine' from /home/ssm-user/project/scores/results/ensemble_member_0_gine_best.pt
   > Loading 'gatv2' from /home/ssm-user/project/scores/results/ensemble_member_1_gatv2_best.pt
@@ -143,18 +127,18 @@ Modern version of docking tool.
   > Sampling from model 3/4 (TRANSFORMER) (MC-T=5)
   > Sampling from model 4/4 (GCN) (MC-T=5)
 > 
-[info] Prediction complete. Generated 20 samples for 1 388 351 ligands.
+[info] Prediction complete. Generated 20 samples for 3188651 ligands.
 [info] Calculating final scores and confidence metrics...
 
 -----------------[ Summary ]---------------------
-Successfully predicted ligands: 1 388 351
-Total inference time: 2821.96 seconds(0.002 per mol)
-Rank confidence calculation time: 6.1217 seconds
+Successfully predicted ligands: 3188651
+Total inference time: 22320.63 seconds (0.01 per ligand)
+Rank confidence calculation time: 19.3441 seconds
 ---------------------------------------------------
 
 <bash>
 
-(head -n 1 enamine_ligands_predictions.csv && tail -n +2  enamine_ligands_predictions.csv | sort -t, -k5,5nr -k8,8nr) | head -n 10001 > top10000_enamine_ligands_predictions.csv
+(head -n 1 enamine_ligands_predictions.csv && tail -n +2  enamine_ligands_predictions.csv | sort -t, -k5,5nr -k8,8nr) | head -n 10001 > top10000_enamine_ligands_predictions_out.csv
 
 ```
 
