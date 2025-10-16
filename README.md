@@ -153,7 +153,7 @@ Modern version of docking tool.
 
 -----------------[ Summary ]---------------------
 Successfully predicted ligands: 3188651
-Total inference time: 22320.63 seconds (0.01 per ligand)
+Total inference time: 2232063.72 seconds (0.01 per ligand)
 Rank confidence calculation time: 19.3441 seconds
 ---------------------------------------------------
 
