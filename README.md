@@ -186,7 +186,7 @@ We then checked these ten for the canonical hinge-binding motif typical of HER2 
 <img width="2201" height="883" alt="image" src="https://github.com/user-attachments/assets/5f24df75-5931-457e-a87e-25fe2335c135" />
 
 
-## CRediT statement
+## Contribution statement
 
 **Professor (Seoul National University)**
 - **Juyong Lee** : Supervision; Conceptualization; Methodology; Funding acquisition.
