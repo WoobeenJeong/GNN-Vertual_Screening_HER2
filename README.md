@@ -1,13 +1,14 @@
 ## Bayes-GNE: A Bayesian-Approximated GNN Ensemble for HER2 Ligand discovery
 ### Large-scale Virtual Screening using GNN 
 
-
 This repository is part of the LAIDD mentoring project.
-For internal and educational use only. Do not redistribute without permission.
+For internal and educational use only.
+Do not redistribute without permission.
+© 2025 LAIDD Project. All rights reserved.
 
 ---
 
-The dataset is available at:
+The dataset is available at :
 
 ### [ Development set (100,160 compounds) ]
 
