@@ -1,4 +1,4 @@
-# 01. Checking Splited data Differences
+# Checking Splited data Differences
 
 ### Dataset overview
 
