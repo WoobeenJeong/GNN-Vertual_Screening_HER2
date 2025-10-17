@@ -35,7 +35,7 @@ Final Result Ligand set ( 3,188,651 compounds )
 
 ---
 
-# Abstract
+## Abstract
 
 <img width="2283" height="578" alt="image" src="https://github.com/user-attachments/assets/1ea9d044-cae4-4786-9753-300668229702" />
 
@@ -46,7 +46,7 @@ We performed large-scale computer-based virtual screening targeting the HER2 8VB
 <br>
 Top hits were triaged using deep-learning frameworks and are recommended for biochemical and cellular validation as promising leads to overcome current resistance mechanisms and improve clinical outcomes.<br>
 
-# Baselines
+## Baselines
 
 For reproducibility, we commit environment.yml
 
@@ -87,19 +87,19 @@ Project directory structure on AWS EC2 (To preprocess & build Bayes_GNE model)
       └─*.pt
 ```
 
-# Autodock-GPU (Vina affinity)
+## Autodock-GPU (Vina affinity)
 
 Fast version of docking tool.
 - Physics-based prediction on small molecule (drug candidates) by their molecular interaction with target.
 - GPU acceleration allows fast screening of large compound libraries, purely physical scoring may miss subtle patterns.
 
-# GNINA (CNN affinity)
+## GNINA (CNN affinity)
 
 Modern version of docking tool.
 - Extends docking by integrating a convolutional neural network (CNN) to score ligand poses.
 - Improves pose ranking and virtual screening performance, especially for challenging targets, by capturing patterns AutoDock GPU alone may miss.
 
-# TOP-n compound picking by using GNN based model (Bayes-GNE)
+## TOP-n compound picking by using GNN based model (Bayes-GNE)
 
 
 <img width="1731" height="661" alt="image" src="https://github.com/user-attachments/assets/45062d21-5c23-4ad4-9c9b-dfa33d7c8477" />
@@ -173,7 +173,7 @@ Each molecule is encoded as a graph of atom (node) and bond (edge) features and 
 We define **rank confidence** as the probability that a molecule’s rank remains unchanged given model uncertainty. Using this measure, we obtain an uncertainty-aware consensus between docking and CNN predictions that focuses experimental follow-up and reduces the need for costly re-scoring.
 
 
-# Analyze Druggability properties
+## Analyze Druggability properties
 
 - **QED** (Quantitative Estimate of Drug-likeness) : a single 0–1 score that estimates how drug-like a molecule is; we used QED ≥ 0.7 as the threshold.
 
@@ -191,19 +191,18 @@ We then checked these ten for the canonical hinge-binding motif typical of HER2 
 <img width="2201" height="883" alt="image" src="https://github.com/user-attachments/assets/5f24df75-5931-457e-a87e-25fe2335c135" />
 
 
-# CRediT author statement
+## CRediT author statement
 
-### Professor (Seoul National University)
+**Professor (Seoul National University)**
 - Juyong Lee : Supervision; Conceptualization; Methodology; Funding acquisition.
 
   (Research supervision; proposed Gaussian embedding for node/edge features.)
 
-### Mentor (Seoul National University)
+**Mentor (Seoul National University)**
 - Haelyn Kim : Resources; Project administration; Methodology; Supervision.
 
   (Built and maintained the analysis environment; advised on data interpretation and overall project management.)
   
-### Contributors
 **Research scientist in the pharmaceutical industry**
 - Dohoon Kim : Data curation; Software; Validation; Formal analysis.
   
