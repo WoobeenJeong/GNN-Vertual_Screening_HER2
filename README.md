@@ -164,9 +164,9 @@ We designed Bayes-GNE (Bayesian-approximated GNN Ensemble) to mitigate two perva
 
 (i) inconsistent and often discordant ranking signals from physics-based docking scores (e.g., AutoDock Vina) and pose-sensitive CNN scorers (e.g., GNINA), and (ii) the high computational cost of exhaustive docking and CNN rescoring. 
 
-Each molecule is encoded as a graph of atom (node) and bond (edge) features and evaluated by an ensemble of four complementary GNN architectures; applying Monte-Carlo dropout (p = 0.2) at inference approximates Bayesian model averaging **to produce both affinity predictions (for Vina and GNINA targets) and posterior uncertainty estimates.** 
+Each molecule is encoded as a graph of atom (node) and bond (edge) features and evaluated by an ensemble of four complementary GNN architectures; applying Monte-Carlo dropout (p = 0.2) at inference approximates Bayesian model averaging **to produce both affinity predictions (for Autodock and GNINA) and posterior uncertainty estimates.** 
 
-We define **rank confidence** as the probability that a molecule’s rank remains unchanged given model uncertainty. Using this measure, we obtain an uncertainty-aware consensus between docking and CNN predictions that focuses experimental follow-up and reduces the need for costly re-scoring.
+We define **rank confidence** as the probability that a molecule’s rank remains unchanged given model uncertainty. Using this measure, we obtain an uncertainty-aware consensus between Autodock and GNNA predictions that focuses experimental follow-up and reduces the need for costly re-scoring.
 
 
 ## Analyze Druggability properties
@@ -175,14 +175,13 @@ We define **rank confidence** as the probability that a molecule’s rank remain
 
 - **SA** (Synthetic Accessibility) : a heuristic score estimating how difficult a molecule is to synthesize (lower = easier); we used SA < 3.0 as the threshold.
 
-From the top 10,000 ranked compounds, PAINS filtering (pan-assay interference compound removal) together with the QED and SA thresholds reduced the set to 3,353 ligands. 
+From the top 10,000 ranked compounds, PAINS filtering (pan-assay interference compound removal) with the QED and SA thresholds reduced the set to 3,353 ligands. 
 
 Of the ligands remaining after PAINS filtering (≈34% of the original top 10,000), we ranked candidates using rank confidence, a Bayes-GNE-specific score, and selected the top 10. 
 
 We then checked these ten for the canonical hinge-binding motif typical of HER2 tyrosine kinase inhibitors; 6 of the 10 (60%) contained the motif. Finally, using Boltz for visualization and scoring, we reviewed these molecules and chose 5 final candidate ligands.
 
 <img width="2244" height="669" alt="image" src="https://github.com/user-attachments/assets/cc0ad039-c64a-446d-b996-b7eee6306e0d" />
-
 
 <img width="2201" height="883" alt="image" src="https://github.com/user-attachments/assets/5f24df75-5931-457e-a87e-25fe2335c135" />
 
