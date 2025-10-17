@@ -1,14 +1,6 @@
 ## Bayes-GNE: A Bayesian-Approximated GNN Ensemble for HER2 Ligand discovery
 ### Large-scale Virtual Screening using GNN 
 
-This repository is part of the LAIDD mentoring project.
-
-For internal and educational use only.
-
-Do not redistribute without permission.
-
-© 2025 LAIDD Project. All rights reserved.
-
 ---
 
 The dataset is available at :
@@ -230,3 +222,9 @@ We then checked these ten for the canonical hinge-binding motif typical of HER2 
 
   (Analyzed inter-affinity discrepancies; advocated rank-focused prioritization; defined model performance metrics.)
 
+## License
+
+This repository is licensed under the  
+[Creative Commons Attribution–NonCommercial–NoDerivatives 4.0 International License](https://creativecommons.org/licenses/by-nc-nd/4.0/).
+
+© 2025 LAIDD Mentoring Project. For educational and internal research use only.
