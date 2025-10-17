@@ -205,7 +205,7 @@ We then checked these ten for the canonical hinge-binding motif typical of HER2 
 
 - **Hyojin Kim** : Conceptualization; Methodology; Validation; Investigation.
 
-  (Proposed adding hinge-binding as graph edges; suggested ensemble strategy and hinge-based ligand selection.)
+  (Proposed adding hinge-binding as graph nodes; suggested ensemble strategy and hinge-based ligand selection.)
 
 - **Bokyung Park** : Conceptualization; Data curation; Validation; Investigation.
 
