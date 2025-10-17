@@ -1,4 +1,4 @@
-# GNN-Vertual_Screening_HER2
+## Bayes-GNE: A Bayesian-Approximated GNN Ensemble for HER2 Ligand discovery
 ### Large-scale Virtual Screening using GNN 
 
 
@@ -99,7 +99,7 @@ Modern version of docking tool.
 - Extends docking by integrating a convolutional neural network (CNN) to score ligand poses.
 - Improves pose ranking and virtual screening performance, especially for challenging targets, by capturing patterns AutoDock GPU alone may miss.
 
-# Graph Neural Network based TOP-n compound picking
+# TOP-n compound picking by using GNN based model (Bayes-GNE)
 
 
 <img width="1731" height="661" alt="image" src="https://github.com/user-attachments/assets/45062d21-5c23-4ad4-9c9b-dfa33d7c8477" />
@@ -108,18 +108,21 @@ Modern version of docking tool.
 <img width="2033" height="430" alt="image" src="https://github.com/user-attachments/assets/048be83e-06ba-4692-a005-d2e8931cedd6" />
 
 
-<details>
-  <summary>Ensembled GNN </summary>   
+### Ensembled GNN
 
-   GCN : Basic convolutional networks for graph structured input.
-   
-   GATv2 : Uses attention to weigh neighbors dynamically, To improve representation of feature relations.
-   
-   Transformer-GNN : Combine graph structured input with self-attention to capture long-range dependancies.
-   
-   GINEconv : Encode edge and node features together to create rich graph profiles.
+- **GCN** : Basic convolutional networks for graph structured input.
 
-</details>
+- **GATv2** : Uses attention to weigh neighbors dynamically, To improve representation of feature relations.
+
+- **Transformer-GNN** : Combine graph structured input with self-attention to capture long-range dependancies.
+
+- **GINE** : Encode edge and node features together to create rich graph profiles.
+
+### Activation function : Sigmoid Linear Unit 
+
+- SiLU(swish) provides smoother and self-gated nonlinearity than ReLU, helping GNN models capture subtle node interactions.
+
+   ![SiLU](https://latex.codecogs.com/svg.image?\mathrm{SiLU}=x/(1+e^{-x})=\mathrm{swish}_{\beta=1})
 
 ```
 (docking) $ python 002_bayes_GNE_inference.py
@@ -148,7 +151,7 @@ Modern version of docking tool.
 
 -----------------[ Summary ]---------------------
 Successfully predicted ligands: 3188651
-Total inference time: 2232063.72 seconds (0.01 per ligand)
+Total inference time: 2232063.72 seconds (0.70 per ligand)
 Rank confidence calculation time: 19.3441 seconds
 ---------------------------------------------------
 
@@ -161,9 +164,26 @@ Rank confidence calculation time: 19.3441 seconds
 
 <img width="2101" height="672" alt="image" src="https://github.com/user-attachments/assets/382aca7c-b918-4e3a-af67-bc112b6e925e" />
 
+We designed Bayes-GNE (Bayesian-approximated GNN Ensemble) to mitigate two pervasive issues in structure-based virtual screening: 
+
+(i) inconsistent and often discordant ranking signals from physics-based docking scores (e.g., AutoDock Vina) and pose-sensitive CNN scorers (e.g., GNINA), and (ii) the high computational cost of exhaustive docking and CNN rescoring. 
+
+Each molecule is encoded as a graph of atom (node) and bond (edge) features and evaluated by an ensemble of four complementary GNN architectures; applying Monte-Carlo dropout (p = 0.2) at inference approximates Bayesian model averaging **to produce both affinity predictions (for Vina and GNINA targets) and posterior uncertainty estimates.** 
+
+We define **rank confidence** as the probability that a molecule’s rank remains unchanged given model uncertainty. Using this measure, we obtain an uncertainty-aware consensus between docking and CNN predictions that focuses experimental follow-up and reduces the need for costly re-scoring.
+
 
 # Analyze Druggability properties
 
+- **QED** (Quantitative Estimate of Drug-likeness) : a single 0–1 score that estimates how drug-like a molecule is; we used QED ≥ 0.7 as the threshold.
+
+- **SA** (Synthetic Accessibility) : a heuristic score estimating how difficult a molecule is to synthesize (lower = easier); we used SA < 3.0 as the threshold.
+
+From the top 10,000 ranked compounds, PAINS filtering (pan-assay interference compound removal) together with the QED and SA thresholds reduced the set to 3,353 ligands. 
+
+Of the ligands remaining after PAINS filtering (≈34% of the original top 10,000), we ranked candidates using rank confidence, a Bayes-GNE-specific score, and selected the top 10. 
+
+We then checked these ten for the canonical hinge-binding motif typical of HER2 tyrosine kinase inhibitors; 6 of the 10 (60%) contained the motif. Finally, using Boltz for visualization and scoring, we reviewed these molecules and chose 5 final candidate ligands.
 
 <img width="2244" height="669" alt="image" src="https://github.com/user-attachments/assets/cc0ad039-c64a-446d-b996-b7eee6306e0d" />
 
@@ -171,22 +191,39 @@ Rank confidence calculation time: 19.3441 seconds
 <img width="2201" height="883" alt="image" src="https://github.com/user-attachments/assets/5f24df75-5931-457e-a87e-25fe2335c135" />
 
 
-# Collaborators
-### Professor
-- Juyong Lee, Seoul National University
-### Mentor
-- Haelyn Kim, Seoul National University
+# CRediT author statement
+
+### Professor (Seoul National University)
+- Juyong Lee : Supervision; Conceptualization; Methodology; Funding acquisition.
+
+  (Research supervision; proposed Gaussian embedding for node/edge features.)
+
+### Mentor (Seoul National University)
+- Haelyn Kim : Resources; Project administration; Methodology; Supervision.
+
+  (Built and maintained the analysis environment; advised on data interpretation and overall project management.)
+  
 ### Contributors
-Research scientist in the pharmaceutical industry
+**Research scientist in the pharmaceutical industry**
+- Dohoon Kim : Data curation; Software; Validation; Formal analysis.
+  
+  (Data splitting and preprocessing; initial LGBM/GNN checks and troubleshooting; Boltz affinity verification.)
 
-- Dohoon Kim
-- Hyojin Kim
+- Hyojin Kim : Conceptualization; Methodology; Validation; Investigation.
 
-AI research scientist in the pharmaceutical industry
+  (Proposed adding hinge-binding as graph edges; suggested ensemble strategy and hinge-based ligand selection.)
 
-- Bokyung Park
-- Woobeen Jeong
+- Bokyung Park : Conceptualization; Data curation; Validation; Investigation.
 
-Korea Advanced Institute of Science and Technology (KAIST)
+  (Recommended HER2 target 8VB5 and using its affinity as reference; applied PAINS filtering to reduce candidate set.)
 
-- Junseo Hwang
+**Seoul National University**
+- Woobeen Jeong : Conceptualization; Methodology; Formal analysis; Software.
+
+  (Designed GNN-ensemble statistical framework and proposed the Bayesian-approximation with rank confidence.)
+
+**Korea Advanced Institute of Science and Technology (KAIST)**
+- Junseo Hwang : Conceptualization; Methodology; Formal analysis; Software.
+
+  (Analyzed inter-affinity discrepancies; advocated rank-focused prioritization; defined model performance metrics.)
+
