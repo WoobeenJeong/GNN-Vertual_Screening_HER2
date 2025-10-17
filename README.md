@@ -189,35 +189,35 @@ We then checked these ten for the canonical hinge-binding motif typical of HER2 
 ## CRediT statement
 
 **Professor (Seoul National University)**
-- Juyong Lee : Supervision; Conceptualization; Methodology; Funding acquisition.
+- **Juyong Lee** : Supervision; Conceptualization; Methodology; Funding acquisition.
 
   (Research supervision; proposed Gaussian embedding for node/edge features.)
 
 **Mentor (Seoul National University)**
-- Haelyn Kim : Resources; Project administration; Methodology; Supervision.
+- **Haelyn Kim** : Resources; Project administration; Methodology; Supervision.
 
   (Built and maintained the analysis environment; advised on data interpretation and overall project management.)
   
 **Research scientist in the pharmaceutical industry**
-- Dohoon Kim : Data curation; Software; Validation; Formal analysis.
+- **Dohoon Kim** : Data curation; Software; Validation; Formal analysis.
   
   (Data splitting and preprocessing; initial LGBM/GNN checks and troubleshooting; Boltz affinity verification.)
 
-- Hyojin Kim : Conceptualization; Methodology; Validation; Investigation.
+- **Hyojin Kim** : Conceptualization; Methodology; Validation; Investigation.
 
   (Proposed adding hinge-binding as graph edges; suggested ensemble strategy and hinge-based ligand selection.)
 
-- Bokyung Park : Conceptualization; Data curation; Validation; Investigation.
+- **Bokyung Park** : Conceptualization; Data curation; Validation; Investigation.
 
   (Recommended HER2 target 8VB5 and using its affinity as reference; applied PAINS filtering to reduce candidate set.)
 
 **Seoul National University**
-- Woobeen Jeong : Conceptualization; Methodology; Formal analysis; Software.
+- **Woobeen Jeong** : Conceptualization; Methodology; Formal analysis; Software.
 
   (Designed GNN-ensemble statistical framework and proposed the Bayesian-approximation with rank confidence.)
 
 **Korea Advanced Institute of Science and Technology (KAIST)**
-- Junseo Hwang : Conceptualization; Methodology; Formal analysis; Software.
+- **Junseo Hwang** : Conceptualization; Methodology; Formal analysis; Software.
 
   (Analyzed inter-affinity discrepancies; advocated rank-focused prioritization; defined model performance metrics.)
 
