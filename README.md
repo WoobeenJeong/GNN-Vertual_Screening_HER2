@@ -2,8 +2,11 @@
 ### Large-scale Virtual Screening using GNN 
 
 This repository is part of the LAIDD mentoring project.
+
 For internal and educational use only.
+
 Do not redistribute without permission.
+
 © 2025 LAIDD Project. All rights reserved.
 
 ---
