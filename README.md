@@ -103,8 +103,13 @@ Modern version of docking tool.
 
 <img width="2033" height="430" alt="image" src="https://github.com/user-attachments/assets/048be83e-06ba-4692-a005-d2e8931cedd6" />
 
+### Methods 1 : Statistical approach
 
-### Ensembled GNN
+- **Murcko scaffold split** : When splitting the dataset, we group molecules by their core scaffold (Murcko scaffold) and assign them to train (60%), validation (20%), and test (20%) sets. This is not random shuffling — it checks whether the model can still predict well for molecules with structures it has never seen before, so it gives a stricter test of generalization.
+
+- **CCC (Concordance Correlation Coefficient) loss** : Instead of only measuring simple error (like MSE) or only the trend (like Pearson correlation), CCC measures overall agreement between predictions and true values. It looks at whether the predictions’ average, spread, and trend match the real values. Training with CCC helps the model produce predictions that truly align with the observed data.
+
+### Methods 2 : Ensembled GNN
 
 - **GCN** : Basic convolutional networks for graph structured input.
 
@@ -114,7 +119,7 @@ Modern version of docking tool.
 
 - **GINE** : Encode edge and node features together to create rich graph profiles.
 
-### Activation function : Sigmoid Linear Unit 
+### Methods 3 : Activation function : Sigmoid Linear Unit 
 
 - SiLU(swish) provides smoother and self-gated nonlinearity than ReLU, helping GNN models capture subtle node interactions.
 
